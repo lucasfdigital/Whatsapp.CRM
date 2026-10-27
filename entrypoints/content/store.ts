@@ -1,0 +1,161 @@
+import { useSyncExternalStore } from 'react';
+import type { BridgeClient } from '@/lib/bridge/client';
+import type { ChatSummary } from '@/lib/bridge/protocol';
+import type { Repo } from '@/lib/repo/repo';
+import type { ChatRecord, Note, Stage } from '@/lib/repo/schema';
+import { setStatus as setDomStatus } from '@/lib/wa-dom';
+
+export type LoadStatus = 'loading' | 'ready' | 'error';
+
+/** Photo requests in flight at once (WhatsApp itself loads them as rows scroll in). */
+const PIC_CONCURRENCY = 3;
+export type View = 'none' | 'pipeline';
+
+export interface CrmState {
+  status: LoadStatus;
+  error?: string;
+  chats: ChatSummary[];
+  tracked: Record<string, ChatRecord>;
+  stages: Stage[];
+  activeChat: ChatSummary | null;
+  view: View;
+  /** WhatsApp's own list instead of ours (e.g. "Selecionar conversas" works on it). */
+  nativeList: boolean;
+  /** Profile photos fetched on demand (memory only: URLs expire, never stored). */
+  pics: Record<string, string | null>;
+}
+
+/**
+ * Single source of truth shared by every injected surface (tab bar, rail,
+ * pipeline workspace, contact panel). Each surface is its own React root in
+ * its own shadow root; they all read and act through this store.
+ */
+export function createCrmStore(bridge: BridgeClient, repo: Repo) {
+  let state: CrmState = {
+    status: bridge.isReady ? 'ready' : 'loading',
+    chats: [],
+    tracked: {},
+    stages: [],
+    activeChat: null,
+    view: 'none',
+    nativeList: false,
+    pics: {},
+  };
+  const subs = new Set<() => void>();
+  const picQueue: string[] = [];
+  const picLoading = new Set<string>();
+  const pumpPics = () => {
+    while (picLoading.size < PIC_CONCURRENCY && picQueue.length > 0) {
+      const jid = picQueue.shift()!;
+      picLoading.add(jid);
+      bridge
+        .getProfilePic(jid)
+        .catch(() => null)
+        .then((pic) => {
+          picLoading.delete(jid);
+          set({ pics: { ...state.pics, [jid]: pic } });
+          pumpPics();
+        });
+    }
+  };
+  const set = (patch: Partial<CrmState>) => {
+    state = { ...state, ...patch };
+    subs.forEach((cb) => cb());
+  };
+
+  const loadChats = async () => {
+    try {
+      const chats = await bridge.listChats();
+      set({ chats, status: 'ready', error: undefined });
+      setDomStatus('wacrmChats', String(chats.length));
+    } catch (err) {
+      console.warn('[WhatsApp CRM] listChats', err);
+      setDomStatus('wacrmChats', `erro: ${String(err)}`);
+      set({ status: 'error', error: String(err) });
+    }
+  };
+
+  const loadTracked = async () => {
+    const [list, stages] = await Promise.all([repo.listChats(), repo.listStages()]);
+    set({ tracked: Object.fromEntries(list.map((c) => [c.jid, c])), stages });
+  };
+
+  const loadActive = async () => {
+    try {
+      set({ activeChat: await bridge.getActiveChat() });
+    } catch {
+      // Older wa-js builds may not expose it; the event still updates it.
+    }
+  };
+
+  const ensureTracked = (chat: Pick<ChatSummary, 'jid' | 'kind' | 'name'>) =>
+    repo.trackChat({ jid: chat.jid, kind: chat.kind, displayName: chat.name });
+
+  const offs: Array<() => void> = [];
+
+  return {
+    getState: () => state,
+    subscribe(cb: () => void) {
+      subs.add(cb);
+      return () => subs.delete(cb);
+    },
+
+    start() {
+      offs.push(
+        bridge.on('ready', () => {
+          loadChats();
+          loadActive();
+        }),
+        bridge.on('chatsChanged', loadChats),
+        bridge.on('error', (msg) => set({ status: 'error', error: msg })),
+        bridge.on('activeChat', (chat) => set({ activeChat: chat })),
+        repo.onChange(loadTracked),
+      );
+      if (bridge.isReady) {
+        loadChats();
+        loadActive();
+      }
+      loadTracked();
+    },
+    stop() {
+      offs.splice(0).forEach((off) => off());
+    },
+
+    setView: (view: View) => set({ view }),
+    setNativeList: (nativeList: boolean) => set({ nativeList }),
+
+    /** Asks WhatsApp for a chat's photo once; at most PIC_CONCURRENCY at a time. */
+    requestPic(jid: string) {
+      if (jid in state.pics || picQueue.includes(jid) || picLoading.has(jid)) return;
+      picQueue.push(jid);
+      pumpPics();
+    },
+
+    async openChat(jid: string) {
+      set({ view: 'none' });
+      await bridge.openChat(jid).catch((err) => console.warn('[WhatsApp CRM] openChat', err));
+    },
+
+    async setCliente(chat: Pick<ChatSummary, 'jid' | 'kind' | 'name'>, isCliente: boolean) {
+      await ensureTracked(chat);
+      await repo.setStatus(chat.jid, isCliente ? 'cliente' : 'none');
+    },
+
+    moveToStage: (jid: string, stageId: string, index: number) => repo.moveToStage(jid, stageId, index),
+
+    async setTags(chat: Pick<ChatSummary, 'jid' | 'kind' | 'name'>, tags: string[]) {
+      await ensureTracked(chat);
+      await repo.setTags(chat.jid, tags);
+    },
+
+    listNotes: (jid: string): Promise<Note[]> => repo.listNotes(jid),
+    addNote: (jid: string, body: string) => repo.addNote(jid, body),
+    deleteNote: (id: string) => repo.deleteNote(id),
+  };
+}
+
+export type CrmStore = ReturnType<typeof createCrmStore>;
+
+export function useCrm<T>(store: CrmStore, select: (s: CrmState) => T): T {
+  return useSyncExternalStore(store.subscribe, () => select(store.getState()));
+}

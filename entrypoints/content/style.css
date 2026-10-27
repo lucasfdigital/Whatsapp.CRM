@@ -1,0 +1,13 @@
+@import "../../styles/globals.css";
+
+/* BoardUI expects next/font to define these; inside WhatsApp we use the system stack. */
+:host {
+  --font-inter: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono-source: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+
+
+/* No visible scrollbars in our surfaces either (pipeline, panel); scrolling still works. */
+* {
+  scrollbar-width: none;
+}
