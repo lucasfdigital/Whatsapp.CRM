@@ -1,74 +1,78 @@
-# WhatsApp CRM (extensão Chrome)
+# WhatsApp CRM
 
-CRM pessoal dentro do WhatsApp Web. Plano completo: [tasks/plan.md](tasks/plan.md) · tarefas: [tasks/todo.md](tasks/todo.md).
+Extensão do Chrome que transforma o WhatsApp Web num CRM leve para times de Vendas e CS, sem sair do WhatsApp. Feita pela [Astruz](https://astruz.dev/).
 
-## Rodar
+Não é um produto oficial do WhatsApp nem da Meta.
+
+## O que faz
+
+- **Abas de conversas:** Aguardando (não lidas ou marcadas como não lidas), Individual, Grupos e Clientes, cada uma com contador.
+- **Clientes:** marque conversas ou grupos com a estrela; eles ganham uma aba própria.
+- **Pipeline:** Kanban dos clientes por etapa (Onboarding, Ativo, Em risco, Renovação, Churn), com arrastar e soltar.
+- **CRM da conversa:** etapa, tags e notas de cada cliente, a partir do botão **CRM** no cabeçalho da conversa.
+- **Menu da conversa (⋮):** as ações nativas do WhatsApp em cada card (arquivar, silenciar, fixar, marcar como lida/não lida, listas, limpar, apagar ou sair do grupo). As destrutivas pedem confirmação.
+- **Privacidade:** desfoca mensagens, prévias, mídia, campo de digitação, fotos e nomes até passar o mouse; desfoca a tela inteira quando o mouse sai da janela ou após 1 minuto sem uso.
+- **Visual:** sidebar com as funções do WhatsApp organizadas por categoria e tema escuro com acento azul.
+
+A chave no ícone da extensão liga e desliga tudo; desligada, o WhatsApp volta ao normal.
+
+## Privacidade e segurança
+
+- **Nunca envia mensagens** nem responde sozinha. Ações no WhatsApp só acontecem quando você clica.
+- **Não salva conteúdo de conversa.** Prévias e fotos ficam só na memória da aba.
+- Salva em `chrome.storage.local`, no seu navegador, apenas o que você marca: identificador do chat, nome, status de cliente, etapa, tags, notas e horário/direção da última mensagem.
+- Sem servidor, sem login, sem envio de dados para fora.
+- Permissões: `storage`, `unlimitedStorage`, `scripting` e acesso só a `https://web.whatsapp.com/*`.
+
+## Instalar (modo desenvolvedor)
+
+Requer Node.js (versão LTS atual).
 
 ```bash
-npm install        # também copia o wa-js para public/
-npm run build      # gera build/chrome-mv3
-npm test           # testes unitários
-npm run dev        # Chrome com hot reload
+npm install
+npm run build
 ```
 
-## Instalar para testar
-1. `npm run build`
-2. Chrome → `chrome://extensions` → ligar **Modo do desenvolvedor**
-3. **Carregar sem compactação** → escolher a pasta `build/chrome-mv3`
-4. Abrir https://web.whatsapp.com
+1. Abra `chrome://extensions` e ligue o **Modo do desenvolvedor**.
+2. Clique em **Carregar sem compactação** e escolha a pasta `build/chrome-mv3`.
+3. Abra https://web.whatsapp.com.
 
-## Visual
-BoardUI (React + Tailwind v4), **tema escuro com acento azul**. Regras em `AGENTS.md` e na skill `.claude/skills/boardui`: só tokens semânticos (`text-text-primary`, `bg-background-*`, `accent-*`), tipografia composta (`text-body-medium`…), `cx()` para classes, ícones `@remixicon/react`. Componentes ficam em `components/base/` (adicionar com `BOARDUI_TELEMETRY_DISABLED=1 npx boardui@latest add <nome>`).
+Para atualizar depois de um novo build: clique em ↻ no card da extensão e recarregue a aba do WhatsApp.
 
-Por enquanto **sem** componentes com popover (select, dropdown, tooltip, date-picker): dentro do WhatsApp eles abrem fora da shadow root. Precisa de `UNSAFE_PortalProvider` apontando para dentro da shadow root antes de usar.
+## Desenvolvimento
 
-Imagens de demonstração do BoardUI ficam em `boardui-assets/` de propósito (fora de `public/`), senão entram no pacote da extensão (+7,7 MB). Se `boardui add` recriar algo em `public/templates`, `public/ai-chat` ou `public/brand`, mover para lá.
+```bash
+npm run dev        # Chrome com recarga automática
+npm test           # testes unitários (Vitest)
+npm run compile    # checagem de tipos
+```
 
-### WhatsApp nativo com visual BoardUI
-- `lib/wa-theme.ts`: sobrescreve os tokens semânticos do WhatsApp (`--WDS-surface-default`, `--WDS-accent`, bolhas, divisórias…) com os tokens do BoardUI, lidos em tempo real da shadow root. Fonte Inter.
-- `lib/wa-icons.ts`: troca ícones nativos (`[data-icon="…"]`) pelo Remix Icon via máscara CSS. Nomes desconhecidos ficam nativos; para cobrir mais, adicionar no `ICON_MAP`.
-- Tudo some ao **Desligar** (o `<style>` é removido).
+O que depende do WhatsApp de verdade (layout, ações nativas) é conferido à mão: [docs/teste-manual.md](docs/teste-manual.md).
 
-## Teste manual
-- [ ] Recarregar extensão (↻ em `chrome://extensions`) e a aba do WhatsApp
-- [ ] Os filtros nativos (Tudo, Não lidas, listas próprias) somem; ficam só a busca e as abas BoardUI (sublinhadas) **Aguardando · Individual · Grupos** com números; **Desligar** traz os filtros de volta
-- [ ] **Aguardando**: conversas e grupos com mensagens não lidas (ou marcados como não lidos); leu, sai da aba
-- [ ] Fotos de contatos e grupos aparecem na lista, nos cards do Pipeline e no painel CRM (sem foto → iniciais)
-- [ ] Cada conversa é um card com a última mensagem ("Você: …", "Ana: 📷 Foto"); a prévia fica só na memória, nunca no storage
-- [ ] Sem linha atravessando a conversa nem divisor dentro do card da lista; cantos dos cards sem mancha
-- [ ] Painel CRM: número só para contatos `@c.us` (ids `@lid` mostram "Conversa")
-- [ ] **Individual** só conversas individuais; **Grupos** só grupos
-- [ ] Clicar num item abre a conversa certa
-- [ ] ☆ ao lado de um item → vira ★; **Clientes** (seção CRM da sidebar) abre a aba Clientes; recarregar → continua lá
-- [ ] Digitar na busca do WhatsApp mostra os resultados do próprio WhatsApp; apagar a busca volta para a aba
-- [ ] Sidebar BoardUI cobre a barra lateral nativa: altura toda, Configurações embaixo, itens nativos funcionam, **Arquivadas** abre as arquivadas, seção **CRM** (Pipeline, Clientes), botão de recolher
-- [ ] Sidebar em seções **Conversas · CRM · Atualizações · Negócio** e rodapé **Conta**; cada item do menu ⋮ (Respostas rápidas, Catálogo, Cobranças, Mensagens favoritas, Novo grupo…) abre a função nativa (o menu ⋮ abre e fecha sozinho; se o item não existir, o menu fica aberto). **Selecionar conversas** mostra a lista do WhatsApp com "Voltar às abas". **Desconectar** fica no fim e deve pedir confirmação do WhatsApp
-- [ ] Nenhuma janela do WhatsApp fica por baixo/por cima da sidebar; se algo sobrepor, o rodapé da sidebar mostra "Sobreposto por…" ou "WhatsApp não deslocou"
-- [ ] Lista de conversas e conversa aberta aparecem como cards arredondados (mesma cor da sidebar), lista com ~400px
-- [ ] **Pipeline** (sidebar) abre o Kanban; arrastar card entre etapas; clicar no card abre a conversa; Esc fecha
-- [ ] Conversa aberta → botão **CRM** no cabeçalho → card à direita: marcar cliente, etapa, tags (Enter), notas
-- [ ] Digitar numa nota/tag não dispara atalhos do WhatsApp nem joga o foco para a caixa de mensagem
-- [ ] Cores do WhatsApp em tons BoardUI (fundo grafite, bolhas enviadas azuis, destaques azuis), fonte Inter
-- [ ] Clicar no ícone da extensão → chave **Desligado** → sidebar, abas e cards somem na hora e a barra lateral nativa volta; recarregar o WhatsApp → nenhum script da extensão
-- [ ] **Ligado** de novo → tudo volta sem precisar recarregar
+### Arquitetura
 
-## Arquitetura
 | Peça | Onde roda | Faz |
 |---|---|---|
-| `public/wppconnect-wa.js` (wa-js 4.7.2 fixo) | página do WhatsApp (MAIN) | expõe `window.WPP`; só é injetado com a extensão **Ligada** |
-| `entrypoints/background.ts` + `lib/main-world.ts` | service worker | registra/remove wa-js + bridge conforme a chave; ao religar injeta nas abas abertas |
-| `entrypoints/wa-bridge.ts` | página do WhatsApp (MAIN) | só leitura: lista chats, avisa novas mensagens (horário + direção), abre chat. Nunca envia mensagem |
-| `lib/bridge/*` | content script (isolado) | cliente tipado da ponte; valida com zod tudo que vem da página |
-| `lib/repo/*` | content script (isolado) | dados em `chrome.storage.local`, schema versionado + migrações |
-| `entrypoints/content/*` | content script (isolado) | abas + lista própria (React + Tailwind em Shadow DOM) inseridas antes de `#pane-side` |
-| `entrypoints/popup/*` | popup da extensão | chave liga/desliga |
-| `lib/wa-dom.ts` | content script | **todos** os seletores do WhatsApp num lugar só |
+| `public/wppconnect-wa.js` ([wa-js](https://github.com/wppconnect-team/wa-js) 4.7.2) | página do WhatsApp | expõe `window.WPP`; injetado só com a extensão ligada |
+| `entrypoints/wa-bridge.ts` | página do WhatsApp | lista conversas, avisa novas mensagens, abre conversas e roda as ações do menu ⋮ |
+| `entrypoints/background.ts`, `lib/main-world.ts` | service worker | registra ou remove os scripts da página conforme a chave |
+| `lib/bridge/*` | content script | cliente tipado da ponte; valida com zod tudo que vem da página |
+| `lib/repo/*` | content script | dados em `chrome.storage.local`, com schema versionado e migrações |
+| `entrypoints/content/*` | content script | interface (React + Tailwind v4 em Shadow DOM) |
+| `lib/wa-dom.ts`, `lib/wa-theme.ts` | content script | seletores do WhatsApp e tema aplicado à interface nativa |
+| `lib/privacy.ts` | content script | regras de desfoque e o véu de tela inteira |
+| `entrypoints/popup/*` | popup | chave liga/desliga |
 
-Dados salvos: só metadados dos chats que você marcou (JID, nome, status, horário/direção da última mensagem). Conteúdo de conversa não é salvo.
+A interface usa componentes [BoardUI](https://www.boardui.com/) (React + Tailwind v4); as regras de estilo estão em [AGENTS.md](AGENTS.md).
 
-## Diagnóstico
-Se as abas não aparecerem, cole no console (linha de comando embaixo, não no Filter) e envie o resultado:
+### Diagnóstico
+
+Se as abas não aparecerem, rode no console da aba do WhatsApp e confira o resultado (não inclui conteúdo de mensagens):
+
 ```js
-({crm: document.documentElement.dataset.wacrm, chats: document.documentElement.dataset.wacrmChats, pane: !!document.querySelector('#pane-side'), ids: [...document.querySelectorAll('[id]')].map(e => e.id).filter(i => !/^\d/.test(i)).slice(0, 30)})
+({ crm: document.documentElement.dataset.wacrm, chats: document.documentElement.dataset.wacrmChats, pane: !!document.querySelector('#pane-side') })
 ```
-- `crm` vazio → content script não rodou · `pane: false` → seletor mudou (corrigir em `lib/wa-dom.ts`) · `chats: erro…` → wa-js incompatível com esta versão do WhatsApp
+
+- `crm` vazio: o content script não rodou.
+- `pane: false`: o WhatsApp mudou um seletor (ajustar em `lib/wa-dom.ts`).
+- `chats: erro…`: o wa-js não é compatível com esta versão do WhatsApp.

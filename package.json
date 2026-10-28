@@ -1,6 +1,6 @@
 {
   "name": "whatsapp-crm",
-  "description": "CRM para WhatsApp Web: clientes, pipeline, tarefas e follow-ups",
+  "description": "CRM para WhatsApp Web: clientes, pipeline, tags, notas e privacidade",
   "private": true,
   "version": "0.1.0",
   "type": "module",

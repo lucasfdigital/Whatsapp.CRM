@@ -11,7 +11,7 @@ export default defineConfig({
   }),
   manifest: {
     name: 'WhatsApp CRM',
-    description: 'CRM para WhatsApp Web: clientes, pipeline, tarefas e follow-ups.',
+    description: 'CRM para WhatsApp Web: clientes, pipeline, tags, notas e privacidade.',
     permissions: ['storage', 'unlimitedStorage', 'scripting'],
     host_permissions: ['https://web.whatsapp.com/*'],
   },

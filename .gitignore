@@ -6,3 +6,9 @@ build
 public/wppconnect-wa.js
 .DS_Store
 probe-drawer.js
+
+# Internal: plans, agent tooling, BoardUI demo assets (kept locally, not published)
+tasks/
+.claude/
+.cursor/
+boardui-assets/
