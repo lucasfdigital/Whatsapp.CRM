@@ -15,7 +15,7 @@
 /* Privacy blur on our own surfaces; the variables are set on <html> by lib/privacy.ts. */
 .wacrm-blur-names,
 .wacrm-blur-previews,
-.wacrm-blur-photos {
+.wacrm-blur-photos > * {
   transition: filter var(--wacrm-blur-transition, 150ms) ease;
 }
 .wacrm-blur-names {
@@ -24,11 +24,17 @@
 .wacrm-blur-previews {
   filter: var(--wacrm-blur-previews, none);
 }
+/* Photos: blur the avatar inside a round clip, so the halo doesn't show as a square. */
 .wacrm-blur-photos {
+  display: inline-flex;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+.wacrm-blur-photos > * {
   filter: var(--wacrm-blur-photos, none);
 }
 .wacrm-blur-names:hover,
 .wacrm-blur-previews:hover,
-.wacrm-blur-photos:hover {
+.wacrm-blur-photos:hover > * {
   filter: none;
 }

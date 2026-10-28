@@ -49,7 +49,7 @@ export const VEIL_OPTIONS: Array<{ key: VeilKey; label: string }> = [
   { key: 'onIdle', label: 'Desfocar tudo após 1 min sem uso' },
 ];
 
-export const BLUR_PX = 8;
+export const BLUR_PX = 5;
 export const IDLE_MS = 60_000;
 
 /**
@@ -103,7 +103,8 @@ export function buildPrivacyCss(settings: PrivacySettings, extra: DiscoveredSele
     if (!settings.blur[key]) continue;
     const sels = selectorsFor(key, extra);
     rules.push(
-      `${sels.join(', ')} { filter: blur(${BLUR_PX}px) !important; transition: ${transition} !important; }`,
+      // Profile photos are round: clip the blur's halo to the circle (else it shows as a square).
+      `${sels.join(', ')} { filter: blur(${BLUR_PX}px) !important; transition: ${transition} !important;${key === 'photos' ? ' clip-path: circle(50%) !important;' : ''} }`,
       `${sels.map((s) => `${s}:hover`).join(', ')} { filter: none !important; }`,
     );
   }

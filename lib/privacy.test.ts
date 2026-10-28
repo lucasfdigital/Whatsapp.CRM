@@ -41,7 +41,7 @@ describe('privacy', () => {
 
   it('exposes one variable per option for our surfaces', () => {
     const vars = privacyVars(withBlur({ previews: true }));
-    expect(vars['--wacrm-blur-previews']).toBe('blur(8px)');
+    expect(vars['--wacrm-blur-previews']).toBe('blur(5px)');
     expect(vars['--wacrm-blur-names']).toBe('none');
   });
 
