@@ -1,4 +1,5 @@
 import { storage } from 'wxt/utils/storage';
+import { findRuleSelectors } from './wa-dom';
 
 /**
  * Privacy blur, like WhatsApp privacy extensions: chosen parts of the screen are
@@ -74,12 +75,33 @@ export const NATIVE_SELECTORS: Record<BlurKey, string[]> = {
 };
 
 /** CSS for WhatsApp's own DOM; empty when nothing is on. */
-export function buildPrivacyCss(settings: PrivacySettings): string {
+/**
+ * Selectors found at runtime: WhatsApp's message bubble and composer classes are
+ * hashed per release, so they are looked up by the CSS variables they use (as
+ * the theme does) and added to the fixed guesses above.
+ */
+export type DiscoveredSelectors = Partial<Record<BlurKey, string[]>>;
+
+let discovered: DiscoveredSelectors = {};
+
+export function discoverSelectors(): DiscoveredSelectors {
+  const bubble = findRuleSelectors('--WAWeb-minimal-msg-bubble-shadow').map((s) => `#main ${s}`);
+  const composer = findRuleSelectors('--chat-composer-background-color').map((s) => `#main footer ${s}`);
+  return {
+    messages: bubble,
+    media: bubble.flatMap((s) => [`${s} img:not(.emoji)`, `${s} video`]),
+    input: composer,
+  };
+}
+
+const selectorsFor = (key: BlurKey, extra: DiscoveredSelectors) => [...NATIVE_SELECTORS[key], ...(extra[key] ?? [])];
+
+export function buildPrivacyCss(settings: PrivacySettings, extra: DiscoveredSelectors = {}): string {
   const transition = settings.noTransition ? 'none' : 'filter 150ms ease';
   const rules: string[] = [];
   for (const { key } of BLUR_OPTIONS) {
     if (!settings.blur[key]) continue;
-    const sels = NATIVE_SELECTORS[key];
+    const sels = selectorsFor(key, extra);
     rules.push(
       `${sels.join(', ')} { filter: blur(${BLUR_PX}px) !important; transition: ${transition} !important; }`,
       `${sels.map((s) => `${s}:hover`).join(', ')} { filter: none !important; }`,
@@ -108,7 +130,7 @@ export function nativeMatches(
 ): Partial<Record<BlurKey, number>> {
   const out: Partial<Record<BlurKey, number>> = {};
   for (const { key } of BLUR_OPTIONS) {
-    if (settings.blur[key]) out[key] = root.querySelectorAll(NATIVE_SELECTORS[key].join(', ')).length;
+    if (settings.blur[key]) out[key] = root.querySelectorAll(selectorsFor(key, discovered).join(', ')).length;
   }
   return out;
 }
@@ -124,14 +146,25 @@ export function startPrivacy(settings: PrivacySettings, zIndex: number): () => v
   const html = document.documentElement;
   const vars = privacyVars(settings);
   for (const [name, value] of Object.entries(vars)) html.style.setProperty(name, value);
-  const css = buildPrivacyCss(settings);
   let style: HTMLStyleElement | null = null;
-  if (css) {
-    style = document.createElement('style');
-    style.id = STYLE_ID;
-    style.textContent = css;
-    document.head.append(style);
-  }
+  const render = () => {
+    const css = buildPrivacyCss(settings, discovered);
+    if (!css) return;
+    style ??= document.head.appendChild(Object.assign(document.createElement('style'), { id: STYLE_ID }));
+    if (style.textContent !== css) style.textContent = css;
+  };
+  // WhatsApp loads the conversation's CSS lazily: keep looking until bubble and composer show up.
+  let discoverTimer: number | undefined;
+  const discover = () => {
+    discovered = discoverSelectors();
+    render();
+    if (discovered.messages?.length && discovered.input?.length) window.clearInterval(discoverTimer);
+  };
+  const wantsDiscovery = settings.blur.messages || settings.blur.media || settings.blur.input;
+  if (wantsDiscovery) {
+    discoverTimer = window.setInterval(discover, 3000);
+    discover();
+  } else render();
 
   // Veil: a fixed backdrop blur above everything (a filter on <body> would break fixed layers).
   let veil: HTMLDivElement | null = null;
@@ -170,6 +203,7 @@ export function startPrivacy(settings: PrivacySettings, zIndex: number): () => v
   }
 
   return () => {
+    window.clearInterval(discoverTimer);
     offs.splice(0).forEach((off) => off());
     for (const name of Object.keys(vars)) html.style.removeProperty(name);
     style?.remove();

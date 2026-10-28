@@ -27,6 +27,12 @@ describe('privacy', () => {
     expect(css).toContain('transition: filter 150ms ease');
   });
 
+  it('adds selectors found at runtime (hashed bubble/composer classes)', () => {
+    const css = buildPrivacyCss(withBlur({ messages: true }), { messages: ['#main .x1abc'] });
+    expect(css).toContain('#main .x1abc');
+    expect(css).toContain('#main .x1abc:hover');
+  });
+
   it('reveals instantly without transition', () => {
     const settings = withBlur({ photos: true }, { noTransition: true });
     expect(buildPrivacyCss(settings)).toContain('transition: none');
