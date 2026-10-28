@@ -61,7 +61,8 @@ export const TOKEN_MAP: Record<string, string[]> = {
   'accent-900': ['--WDS-accent-deemphasized', '--WDS-components-filter-surface-selected'],
 };
 
-export const FONT_STACK = '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+export const FONT_STACK =
+  '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
 
 const STYLE_ID = 'wacrm-boardui-theme';
 
@@ -74,7 +75,10 @@ export interface NativeSelectors {
   composer: string[];
 }
 
-export function buildThemeCss(read: (token: string) => string, native: NativeSelectors = { bubble: [], composer: [] }): string {
+export function buildThemeCss(
+  read: (token: string) => string,
+  native: NativeSelectors = { bubble: [], composer: [] },
+): string {
   const decls: string[] = [];
   for (const [token, vars] of Object.entries(TOKEN_MAP)) {
     const value = read(token).trim();
@@ -152,7 +156,9 @@ function paneCardCss(ground: string, card: string, line = ''): string[] {
     // since WhatsApp's own opaque children would cover an inset border or shadow.
     ...(line
       ? [
-          `[data-wacrm-pane] { position: relative !important; isolation: isolate !important; }`,
+          // Positioned only where WhatsApp left the pane static (wa-dom marks it); never override its own.
+          `[data-wacrm-pane][data-wacrm-static] { position: relative !important; }`,
+          `[data-wacrm-pane] { isolation: isolate !important; }`,
           `[data-wacrm-pane]::after { content: "" !important; position: absolute !important; inset: 0 !important; border: 1px solid ${line} !important; border-radius: 24px !important; pointer-events: none !important; z-index: 1000 !important; }`,
         ]
       : []),

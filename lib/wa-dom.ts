@@ -46,7 +46,8 @@ export function hideNativeFilters(): void {
   if (!side || side.querySelector(`[${FILTERS_ATTR}]`)) return;
   // Runs every second: skip the (huge) chat list instead of scanning it.
   const walker = document.createTreeWalker(side, NodeFilter.SHOW_ELEMENT, {
-    acceptNode: (el) => ((el as Element).matches(SELECTORS.chatList) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+    acceptNode: (el) =>
+      (el as Element).matches(SELECTORS.chatList) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
   });
   let chip: HTMLElement | null = null;
   for (let node = walker.nextNode(); node && !chip; node = walker.nextNode()) {
@@ -188,6 +189,7 @@ export function setAppShift(px: number): void {
 }
 
 export const PANE_ATTR = 'data-wacrm-pane';
+const PANE_STATIC_ATTR = 'data-wacrm-static';
 /** Row holding the panes: painted in the ground color so nothing shows past the cards' round corners. */
 export const PANE_ROW_ATTR = 'data-wacrm-panerow';
 /**
@@ -239,8 +241,17 @@ export function markPanes(): void {
   if (right.length === 0) return;
   const marked = new Set<Element>([left, ...right]);
   if (left.getAttribute(PANE_ATTR) !== 'left') left.setAttribute(PANE_ATTR, 'left');
-  for (const el of right) if (el.getAttribute(PANE_ATTR) !== 'right') el.setAttribute(PANE_ATTR, 'right');
-  document.querySelectorAll(`[${PANE_ATTR}]`).forEach((el) => marked.has(el) || el.removeAttribute(PANE_ATTR));
+  for (const el of right) {
+    if (el.getAttribute(PANE_ATTR) === 'right') continue;
+    // Our card line needs a positioned pane; only static ones get position: relative (keeps WhatsApp's own).
+    el.toggleAttribute(PANE_STATIC_ATTR, getComputedStyle(el).position === 'static');
+    el.setAttribute(PANE_ATTR, 'right');
+  }
+  document.querySelectorAll(`[${PANE_ATTR}]`).forEach((el) => {
+    if (marked.has(el)) return;
+    el.removeAttribute(PANE_ATTR);
+    el.removeAttribute(PANE_STATIC_ATTR);
+  });
   const row = left.parentElement;
   if (row && !row.hasAttribute(PANE_ROW_ATTR)) row.setAttribute(PANE_ROW_ATTR, '');
   document.querySelectorAll(`[${PANE_ROW_ATTR}]`).forEach((el) => el === row || el.removeAttribute(PANE_ROW_ATTR));
@@ -260,7 +271,8 @@ function layoutListHeader(left: HTMLElement): void {
   if (!menu || !search || !list || !left.contains(menu) || !left.contains(search)) return;
   // Header: the menu's ancestor right below the branch that holds the search box.
   let hdr: HTMLElement = menu;
-  while (hdr.parentElement && hdr.parentElement !== left && !hdr.parentElement.contains(search)) hdr = hdr.parentElement;
+  while (hdr.parentElement && hdr.parentElement !== left && !hdr.parentElement.contains(search))
+    hdr = hdr.parentElement;
   // Search row: the search box's ancestor right below the branch that holds the chat list.
   let searchRow: HTMLElement = search;
   while (searchRow.parentElement && searchRow.parentElement !== left && !searchRow.parentElement.contains(list)) {
@@ -288,7 +300,11 @@ function layoutListHeader(left: HTMLElement): void {
   hideOthers(hdr);
   // Visible pill: the search box's first ancestor with a background.
   let pillEl: HTMLElement = search;
-  while (pillEl !== searchRow && pillEl.parentElement && getComputedStyle(pillEl).backgroundColor === 'rgba(0, 0, 0, 0)') {
+  while (
+    pillEl !== searchRow &&
+    pillEl.parentElement &&
+    getComputedStyle(pillEl).backgroundColor === 'rgba(0, 0, 0, 0)'
+  ) {
     pillEl = pillEl.parentElement;
   }
   const l = left.getBoundingClientRect();
@@ -305,7 +321,10 @@ function layoutListHeader(left: HTMLElement): void {
   // ⋮ centered on the pill; `top` is measured from inside the card's border.
   set('--wacrm-hdr-top', (pill.top + pill.bottom) / 2 - l.top - left.clientTop - ((m.top + m.bottom) / 2 - h.top));
   // Search pill … + span exactly the width of our tab bar (12px in from the card otherwise, as the sidebar card).
-  const tabs = document.querySelector('wacrm-tabs')?.shadowRoot?.querySelector('[role="tablist"]')?.getBoundingClientRect();
+  const tabs = document
+    .querySelector('wacrm-tabs')
+    ?.shadowRoot?.querySelector('[role="tablist"]')
+    ?.getBoundingClientRect();
   const startX = tabs?.width ? tabs.left : row.left + 12;
   const endX = tabs?.width ? tabs.right : row.right - 12;
   // A margin, not padding: WhatsApp's own inset inside the row may need a negative shift.
@@ -332,14 +351,18 @@ function markLayerSpacers(row: Element, left: Element): void {
     if (!spacer || !panel || spacer.hasAttribute(LAYER_SPACER_ATTR)) continue;
     const r = spacer.getBoundingClientRect();
     // Spacer: starts where the list starts and ends where the panel begins.
-    if (Math.abs(r.left - listLeft) > 2 || r.width < 200 || Math.abs(panel.getBoundingClientRect().left - r.right) > 2) continue;
+    if (Math.abs(r.left - listLeft) > 2 || r.width < 200 || Math.abs(panel.getBoundingClientRect().left - r.right) > 2)
+      continue;
     spacer.setAttribute(LAYER_SPACER_ATTR, '');
     panel.setAttribute(LAYER_PANEL_ATTR, '');
   }
 }
 
 export function clearPanes(): void {
-  document.querySelectorAll(`[${PANE_ATTR}]`).forEach((el) => el.removeAttribute(PANE_ATTR));
+  document.querySelectorAll(`[${PANE_ATTR}]`).forEach((el) => {
+    el.removeAttribute(PANE_ATTR);
+    el.removeAttribute(PANE_STATIC_ATTR);
+  });
   document.querySelectorAll(`[${PANE_ROW_ATTR}]`).forEach((el) => el.removeAttribute(PANE_ROW_ATTR));
   document.querySelectorAll(`[${LAYER_SPACER_ATTR}]`).forEach((el) => el.removeAttribute(LAYER_SPACER_ATTR));
   document.querySelectorAll(`[${LAYER_PANEL_ATTR}]`).forEach((el) => el.removeAttribute(LAYER_PANEL_ATTR));
@@ -394,7 +417,8 @@ export function describeShiftFailure(rail: Element, sidebarWidth: number): strin
   if (!side || side.getBoundingClientRect().left >= sidebarWidth - 2) return null;
   for (let el = rail.parentElement; el && el !== document.body; el = el.parentElement) {
     const { position } = getComputedStyle(el);
-    if (position !== 'static') return `WhatsApp não deslocou (${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''} ${position})`;
+    if (position !== 'static')
+      return `WhatsApp não deslocou (${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''} ${position})`;
   }
   return 'WhatsApp não deslocou';
 }
@@ -462,7 +486,12 @@ function findMenuEntry(roots: Element[], label: string, menuLabels: readonly str
   const isMenu = (el: Element) =>
     new Set([...el.querySelectorAll('*')].map((d) => norm(d.textContent)).filter((t) => known.has(t))).size >= 2;
   for (const root of roots) {
-    if (!root.isConnected || root.closest(`${SELECTORS.chatList}, ${SELECTORS.main}`) || root.tagName.startsWith('WACRM-')) continue;
+    if (
+      !root.isConnected ||
+      root.closest(`${SELECTORS.chatList}, ${SELECTORS.main}`) ||
+      root.tagName.startsWith('WACRM-')
+    )
+      continue;
     // Items may be added one by one into an existing menu: then the parent is the menu.
     const parent = root.parentElement;
     const menu = isMenu(root) ? root : parent && parent !== document.body && isMenu(parent) ? parent : null;
@@ -586,7 +615,9 @@ function groupOf(el: HTMLElement, box: HTMLElement): Element {
 
 /** Activates a native rail button by its label (the rail itself may be hidden). */
 export function clickRailItem(box: HTMLElement, label: string): boolean {
-  const btn = [...box.querySelectorAll<HTMLElement>('[aria-label]')].find((b) => b.getAttribute('aria-label') === label);
+  const btn = [...box.querySelectorAll<HTMLElement>('[aria-label]')].find(
+    (b) => b.getAttribute('aria-label') === label,
+  );
   btn?.click();
   return !!btn;
 }
@@ -641,7 +672,11 @@ function findInfoDrawer(): { header: HTMLElement; body: HTMLElement } | null {
   const title = walker.nextNode()?.parentElement;
   if (!title) return null;
   let drawer: HTMLElement = title;
-  while (drawer.parentElement && drawer.parentElement !== app && drawer.getBoundingClientRect().height < window.innerHeight * 0.6) {
+  while (
+    drawer.parentElement &&
+    drawer.parentElement !== app &&
+    drawer.getBoundingClientRect().height < window.innerHeight * 0.6
+  ) {
     drawer = drawer.parentElement;
   }
   // Body: the scrollable element in the drawer.

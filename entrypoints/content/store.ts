@@ -152,7 +152,8 @@ export function createCrmStore(bridge: BridgeClient, repo: Repo) {
     /** One of WhatsApp's own chat-menu actions; the list refreshes right after. */
     async chatAction(jid: string, action: ChatAction) {
       await bridge.chatAction(jid, action);
-      await loadChats();
+      // Refresh in the background: the menu closes as soon as WhatsApp confirms.
+      void loadChats();
     },
 
     async openChat(jid: string) {

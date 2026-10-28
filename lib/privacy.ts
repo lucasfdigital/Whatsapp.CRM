@@ -74,7 +74,6 @@ export const NATIVE_SELECTORS: Record<BlurKey, string[]> = {
   names: ['#main header span[dir="auto"]', '#pane-side span[title][dir="auto"]'],
 };
 
-/** CSS for WhatsApp's own DOM; empty when nothing is on. */
 /**
  * Selectors found at runtime: WhatsApp's message bubble and composer classes are
  * hashed per release, so they are looked up by the CSS variables they use (as
@@ -96,6 +95,7 @@ export function discoverSelectors(): DiscoveredSelectors {
 
 const selectorsFor = (key: BlurKey, extra: DiscoveredSelectors) => [...NATIVE_SELECTORS[key], ...(extra[key] ?? [])];
 
+/** CSS for WhatsApp's own DOM; empty when nothing is on. */
 export function buildPrivacyCss(settings: PrivacySettings, extra: DiscoveredSelectors = {}): string {
   const transition = settings.noTransition ? 'none' : 'filter 150ms ease';
   const rules: string[] = [];
@@ -156,10 +156,15 @@ export function startPrivacy(settings: PrivacySettings, zIndex: number): () => v
   };
   // WhatsApp loads the conversation's CSS lazily: keep looking until bubble and composer show up.
   let discoverTimer: number | undefined;
+  let attempts = 0;
   const discover = () => {
     discovered = discoverSelectors();
     render();
-    if (discovered.messages?.length && discovered.input?.length) window.clearInterval(discoverTimer);
+    // Only an open conversation loads these classes: count tries from then on.
+    if (document.querySelector('#main')) attempts++;
+    // Found both, or ~5 min of looking (the panel then flags what is missing).
+    if ((discovered.messages?.length && discovered.input?.length) || attempts >= 100)
+      window.clearInterval(discoverTimer);
   };
   const wantsDiscovery = settings.blur.messages || settings.blur.media || settings.blur.input;
   if (wantsDiscovery) {
@@ -192,8 +197,11 @@ export function startPrivacy(settings: PrivacySettings, zIndex: number): () => v
     };
     for (const type of ['mousemove', 'keydown', 'mousedown', 'wheel', 'focus'] as const) listen(document, type, wake);
     if (settings.veil.onLeave) {
+      // Leaving the window, not a node vanishing under the pointer (menus closing also report no relatedTarget).
       const onOut = (e: Event) => {
-        if (!(e as MouseEvent).relatedTarget) show(true);
+        const m = e as MouseEvent;
+        const atEdge = m.clientX <= 0 || m.clientY <= 0 || m.clientX >= innerWidth - 1 || m.clientY >= innerHeight - 1;
+        if (!m.relatedTarget && atEdge) show(true);
       };
       document.addEventListener('mouseout', onOut);
       offs.push(() => document.removeEventListener('mouseout', onOut));

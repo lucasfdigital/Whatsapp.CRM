@@ -108,6 +108,10 @@ export default defineUnlistedScript(() => {
     async chatAction(req: { jid: string; action: ChatAction }) {
       const { chat, group, lists } = WPP();
       const { jid, action } = req;
+      // Requests arrive as page events: accept only a chat id and a known action shape.
+      if (typeof jid !== 'string' || !/@(c\.us|g\.us|lid)$/.test(jid) || typeof action?.type !== 'string') {
+        throw new Error('Pedido inválido');
+      }
       switch (action.type) {
         case 'archive':
           return void (await chat.archive(jid, action.on));
@@ -124,6 +128,7 @@ export default defineUnlistedScript(() => {
         case 'unread':
           return void (await (action.on ? chat.markIsUnread(jid) : chat.markIsRead(jid)));
         case 'addToList':
+          if (!lists?.addChats) throw new Error('Listas indisponíveis nesta versão do WhatsApp');
           return void (await lists.addChats(action.listId, [jid]));
         case 'clear':
           return void (await chat.clear(jid, true));
@@ -132,6 +137,8 @@ export default defineUnlistedScript(() => {
         case 'leave':
           if (kindFromJid(jid) !== 'group') throw new Error('Não é um grupo');
           return void (await group.leave(jid));
+        default:
+          throw new Error('Ação desconhecida');
       }
     },
   };

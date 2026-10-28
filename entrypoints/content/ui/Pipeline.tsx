@@ -18,7 +18,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { RiCloseLine, RiLayoutColumnLine, RiTimeLine } from '@remixicon/react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Badge } from '@/components/base/badges/badge';
 import { Chip } from '@/components/base/badges/chip';
 import { IconButton } from '@/components/base/buttons/icon-button';
@@ -66,9 +66,18 @@ export function Pipeline({ store }: { store: CrmStore }) {
     }),
   );
 
+  // While a card is being dragged (keyboard drag), Escape cancels the drag instead of closing the board.
+  const dragging = useRef(false);
   useEffect(() => {
     if (view !== 'pipeline') return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && store.setView('none');
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || dragging.current) return;
+      // Escape inside another popover or dialog closes that one, not the board.
+      const inPopover = e
+        .composedPath()
+        .some((n) => n instanceof Element && n.matches('[role="dialog"], [role="menu"], [role="listbox"]'));
+      if (!inPopover) store.setView('none');
+    };
     // Capture: the sidebar's shadow host stops keydown from bubbling out (isolateEvents).
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
@@ -137,7 +146,17 @@ export function Pipeline({ store }: { store: CrmStore }) {
             </p>
           </div>
         ) : (
-          <DndContext sensors={sensors} collisionDetection={collision} onDragEnd={onDragEnd}>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={collision}
+            onDragStart={() => (dragging.current = true)}
+            onDragEnd={(e) => {
+              // After the keydown that ended it has been seen by our Escape listener.
+              setTimeout(() => (dragging.current = false));
+              onDragEnd(e);
+            }}
+            onDragCancel={() => setTimeout(() => (dragging.current = false))}
+          >
             <div className="flex flex-1 gap-4 overflow-x-auto p-6">
               {stages.map((stage) => (
                 <Column

@@ -35,10 +35,9 @@ const nativeListShown = () => {
  * Privacy toggles, opened from the sidebar footer. Options whose WhatsApp
  * selectors match nothing are flagged, so a miss never looks like "hidden".
  */
-export function PrivacyPanel() {
-  const settings = usePrivacy();
+/** Enabled options whose WhatsApp parts match nothing right now (also shown on the sidebar entry). */
+export function usePrivacyMisses(settings: PrivacySettings): BlurKey[] {
   const [missing, setMissing] = useState<BlurKey[]>([]);
-
   useEffect(() => {
     const check = () => {
       const counts = nativeMatches(settings);
@@ -55,6 +54,12 @@ export function PrivacyPanel() {
     const timer = window.setInterval(check, 2000);
     return () => window.clearInterval(timer);
   }, [settings]);
+  return missing;
+}
+
+export function PrivacyPanel() {
+  const settings = usePrivacy();
+  const missing = usePrivacyMisses(settings);
 
   const save = (next: PrivacySettings) => privacyItem.setValue(next);
 

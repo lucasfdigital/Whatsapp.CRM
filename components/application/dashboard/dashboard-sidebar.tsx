@@ -101,8 +101,8 @@ export function NavItem({
     // Without an href it is an action row: no "#" link (and no URL in the status bar on hover).
     <a
       href={href}
-      role={href ? undefined : "button"}
-      tabIndex={href ? undefined : 0}
+      role={href || !onClick ? undefined : "button"}
+      tabIndex={href || !onClick ? undefined : 0}
       onKeyDown={
         href || !onClick
           ? undefined

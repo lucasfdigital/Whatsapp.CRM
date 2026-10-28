@@ -22,6 +22,8 @@ Use uma conversa de teste para as ações do menu ⋮. Teste primeiro as que dá
 - [ ] Arquivar, Silenciar (8 horas, 1 semana, Sempre), Fixar, Marcar como lida/não lida funcionam e o card atualiza
 - [ ] Adicionar aos Favoritos e Adicionar à lista colocam a conversa na lista certa do WhatsApp
 - [ ] Limpar, Apagar (individual) e Sair do grupo pedem confirmação; Cancelar não faz nada
+- [ ] Depois de silenciar (inclusive **Sempre**) o menu mostra "Reativar notificações"; depois de fixar, "Desafixar conversa"
+- [ ] O menu fecha logo depois da ação; clicar duas vezes rápido não repete a ação
 
 ## Sidebar
 - [ ] Topo "WhatsApp CRM / Reimagined by Astruz"; Astruz abre https://astruz.dev/
@@ -34,17 +36,21 @@ Use uma conversa de teste para as ações do menu ⋮. Teste primeiro as que dá
 ## Visual
 - [ ] Sidebar, lista e conversa são cards com o mesmo fundo, linha de 1px, cantos de 24px e 8px de espaço entre eles
 - [ ] Sem linha atravessando a conversa nem divisor dentro do card da lista
+- [ ] Na conversa, o menu de anexo, o painel de emojis e o botão "rolar até o fim" ficam onde sempre ficaram; a linha de 1px do card não passa por cima de menus que encostam na borda
 - [ ] Cores do WhatsApp em tons BoardUI (fundo grafite, destaques azuis), bolhas arredondadas, fonte Inter
 - [ ] Nenhuma barra de rolagem visível
 
 ## CRM
 - [ ] **Pipeline** (sidebar) abre o Kanban com as 5 etapas cabendo na tela; arrastar card entre etapas e dentro da coluna; clicar abre a conversa; Esc fecha
+- [ ] Teclado no Pipeline: Espaço pega o card, setas movem, Espaço solta; Esc durante o arraste só cancela (o Pipeline continua aberto)
 - [ ] Botão **CRM** no cabeçalho da conversa abre "Dados do contato" na seção do CRM: marcar cliente, etapa, tags (Enter), notas
 - [ ] Digitar numa tag ou nota não dispara atalhos do WhatsApp
 
 ## Privacidade
 - [ ] Cada opção desfoca o que promete e revela ao passar o mouse; nenhuma mostra o aviso "Não encontrei isso nesta versão do WhatsApp"
 - [ ] Fotos desfocadas sem quadrado em volta
+- [ ] Se alguma opção não achar o que desfocar, aparece um ⚠ vermelho no item **Privacidade** da sidebar, mesmo com o painel fechado
+- [ ] Fechar um menu com o mouse parado no meio da tela não desfoca a tela inteira; sair da janela desfoca
 - [ ] "Quando o mouse sai da janela" e "após 1 min sem uso" desfocam a tela inteira; mexer o mouse volta
 
 ## Ligar e desligar

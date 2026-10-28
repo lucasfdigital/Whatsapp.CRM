@@ -16,7 +16,7 @@ import {
   RiUnpinLine,
   RiInboxUnarchiveLine,
 } from '@remixicon/react';
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/base/buttons/button';
 import {
   Dropdown,
@@ -54,22 +54,40 @@ export function ChatMenu({ store, chat, portal }: { store: CrmStore; chat: MenuC
   const [lists, setLists] = useState<ChatListInfo[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const [pending, setPending] = useState(false);
+  // Bumped on every open/close: a late result from an older open must not touch the menu.
+  const session = useRef(0);
+
   const onOpenChange = (next: boolean) => {
+    session.current++;
     setOpen(next);
-    if (!next) {
-      setSub(null);
-      setConfirm(null);
-      setError(null);
-    } else if (lists === null) {
-      store.listLists().then(setLists, () => setLists([]));
+    setSub(null);
+    setConfirm(null);
+    setError(null);
+    setPending(false);
+    // Lists change in WhatsApp: fetch them on every open.
+    if (next) {
+      const current = session.current;
+      store.listLists().then(
+        (l) => session.current === current && setLists(l),
+        () => session.current === current && setLists([]),
+      );
     }
   };
 
-  const run = (action: ChatAction) =>
+  const run = (action: ChatAction) => {
+    if (pending) return; // one action per open: a double click must not run it twice
+    setPending(true);
+    const current = session.current;
     store.chatAction(chat.jid, action).then(
-      () => onOpenChange(false),
-      (err) => setError(String(err).replace(/^Error: /, '')),
+      () => session.current === current && onOpenChange(false),
+      (err) => {
+        if (session.current !== current) return;
+        setPending(false);
+        setError(String(err).replace(/^Error: /, ''));
+      },
     );
+  };
 
   const favorites = lists?.find((l) => FAVORITES.test(l.name));
   const otherLists = lists?.filter((l) => l !== favorites) ?? [];
@@ -99,6 +117,8 @@ export function ChatMenu({ store, chat, portal }: { store: CrmStore; chat: MenuC
           aria-label={`Opções de ${chat.name}`}
           placement="bottom end"
           portalContainer={portal ?? undefined}
+          // While an action runs: dimmed and inert, so nothing fires twice.
+          dialogClassName={pending ? 'pointer-events-none opacity-60' : undefined}
         >
           {confirm ? (
             <div className="flex flex-col gap-3 p-2">

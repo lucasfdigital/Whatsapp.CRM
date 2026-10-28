@@ -14,6 +14,7 @@ import {
   RiMoneyDollarCircleLine,
   RiUserAddLine,
   RiDonutChartLine,
+  RiErrorWarningFill,
   RiEyeOffLine,
   RiGroupLine,
   RiImageLine,
@@ -54,7 +55,7 @@ import {
 import { cx } from '@/utils/cx';
 import { useCrm, type CrmStore } from '../store';
 import { Surface } from './shared';
-import { PrivacyPanel, usePrivacy } from './PrivacyPanel';
+import { PrivacyPanel, usePrivacy, usePrivacyMisses } from './PrivacyPanel';
 
 /** Minimum stacking level; raised at runtime above WhatsApp's own app layer (zIndexAbove). */
 const SIDEBAR_Z = 10;
@@ -101,14 +102,14 @@ const NATIVE_ICONS: Array<[RegExp, RemixiconComponentType]> = [
   [/(desconectar|log ?out)/i, RiLogoutBoxRLine],
 ];
 
+/** ⋮ menu entries not shown in the sidebar (still listed in MENU_ACTIONS: they help recognize the menu). */
+const SIDEBAR_HIDDEN =
+  /^(mensagens favoritas|starred messages|listas|lists|marcar todas como lidas|mark all as read|selecionar conversas|select chats)$/i;
 /**
  * Entries of WhatsApp's ⋮ menu (Business, pt-BR). Each one runs the native
  * entry, so nothing is lost; ones missing from the account's menu leave the
  * menu open for the user.
  */
-/** ⋮ menu entries not shown in the sidebar (still listed in MENU_ACTIONS: they help recognize the menu). */
-const SIDEBAR_HIDDEN =
-  /^(mensagens favoritas|starred messages|listas|lists|marcar todas como lidas|mark all as read|selecionar conversas|select chats)$/i;
 const MENU_ACTIONS = [
   'Ferramentas comerciais',
   'Novo grupo',
@@ -169,13 +170,20 @@ function SidebarShell({ store, railBox }: { store: CrmStore; railBox: HTMLElemen
     const el = scrollRef.current;
     if (!el) return;
     updateFades();
-    const observer = new ResizeObserver(updateFades);
-    observer.observe(el);
-    [...el.children].forEach((child) => observer.observe(child));
-    return () => observer.disconnect();
-  });
+    // Size changes (window, privacy panel) and items coming or going (WhatsApp's menu found later).
+    const resize = new ResizeObserver(updateFades);
+    resize.observe(el);
+    const mutations = new MutationObserver(updateFades);
+    mutations.observe(el, { childList: true, subtree: true });
+    return () => {
+      resize.disconnect();
+      mutations.disconnect();
+    };
+  }, [updateFades]);
   const [privacyOpen, setPrivacyOpen] = useState(false);
-  const privacyOn = activeCount(usePrivacy());
+  const privacy = usePrivacy();
+  const privacyOn = activeCount(privacy);
+  const privacyMisses = usePrivacyMisses(privacy).length;
   const [zIndex, setZIndex] = useState(SIDEBAR_Z);
   useLayoutEffect(() => {
     const shell = shellRef.current;
@@ -394,7 +402,20 @@ function SidebarShell({ store, railBox }: { store: CrmStore; railBox: HTMLElemen
               label="Privacidade"
               isSelected={privacyOpen}
               onClick={() => setPrivacyOpen((open) => !open)}
-              badge={privacyOn ? <Badge color={privacyOpen ? 'primary' : 'neutral'}>{privacyOn}</Badge> : undefined}
+              badge={
+                privacyOn ? (
+                  <span className="flex items-center gap-1">
+                    {/* Some blur option matches nothing: it is not hiding what it promises. */}
+                    {privacyMisses > 0 && (
+                      <RiErrorWarningFill
+                        className={cx('size-4', privacyOpen ? 'text-white' : 'text-text-error-primary')}
+                        aria-label="Algumas opções de privacidade não encontraram o que desfocar"
+                      />
+                    )}
+                    <Badge color={privacyOpen ? 'primary' : 'neutral'}>{privacyOn}</Badge>
+                  </span>
+                ) : undefined
+              }
             />
             {diagnostics.map((d) => (
               <p key={d} className="px-2 text-caption-1-regular break-all text-text-tertiary">
