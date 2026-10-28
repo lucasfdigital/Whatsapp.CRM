@@ -28,7 +28,7 @@ import {
   RiCircleLine,
   type RemixiconComponentType,
 } from '@remixicon/react';
-import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { NavItem } from '@/components/application/dashboard/dashboard-sidebar';
 import { activeCount } from '@/lib/privacy';
 import { Badge } from '@/components/base/badges/badge';
@@ -156,6 +156,24 @@ function SidebarShell({ store, railBox }: { store: CrmStore; railBox: HTMLElemen
   const [hasNewChat, setHasNewChat] = useState(false);
   const [hasMenu, setHasMenu] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [moreBelow, setMoreBelow] = useState(false);
+  // Bottom fade while sections continue below the fold; re-checked when the list or the window changes size.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const updateFades = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setScrolled(el.scrollTop > 0);
+    setMoreBelow(el.scrollTop + el.clientHeight < el.scrollHeight - 1);
+  }, []);
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    updateFades();
+    const observer = new ResizeObserver(updateFades);
+    observer.observe(el);
+    [...el.children].forEach((child) => observer.observe(child));
+    return () => observer.disconnect();
+  });
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const privacyOn = activeCount(usePrivacy());
   const [zIndex, setZIndex] = useState(SIDEBAR_Z);
@@ -341,7 +359,8 @@ function SidebarShell({ store, railBox }: { store: CrmStore; railBox: HTMLElemen
           <div className="relative -mx-2 min-h-0 flex-1">
             <div
               className="flex h-full flex-col gap-3 overflow-y-auto px-2 pb-3 [scrollbar-width:none]"
-              onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 0)}
+              ref={scrollRef}
+              onScroll={updateFades}
             >
               {body.filter((sec) => sec.id === 'conversas').map(renderSection)}
               {/* CRM right after Conversas: it is what the team opens most. */}
@@ -355,6 +374,15 @@ function SidebarShell({ store, railBox }: { store: CrmStore; railBox: HTMLElemen
                 'pointer-events-none absolute inset-x-0 top-0 h-10 bg-linear-to-b from-background-secondary-default to-transparent',
                 'transition-opacity duration-200 ease-out',
                 scrolled ? 'opacity-100' : 'opacity-0',
+              )}
+            />
+            {/* Same fade at the bottom: sections dissolve into the footer while there is more below. */}
+            <div
+              aria-hidden
+              className={cx(
+                'pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-linear-to-t from-background-secondary-default to-transparent',
+                'transition-opacity duration-200 ease-out',
+                moreBelow ? 'opacity-100' : 'opacity-0',
               )}
             />
           </div>
