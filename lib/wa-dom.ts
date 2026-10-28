@@ -672,21 +672,23 @@ export function clearInfoSlot(): void {
  * block that shows the chat's name. Never a call/video button; if the name
  * block isn't found nothing is clicked.
  */
-export function openContactInfo(chatName: string): boolean {
-  if (findInfoDrawer()) return true;
+export type OpenInfoResult = 'already-open' | 'no-header' | 'no-name' | 'danger' | 'clicked';
+
+export function openContactInfo(chatName: string): OpenInfoResult {
+  if (findInfoDrawer()) return 'already-open';
   const header = document.querySelector<HTMLElement>(SELECTORS.mainHeader);
-  if (!header) return false;
+  if (!header) return 'no-header';
   const danger = /chamada|ligação|ligar|vídeo|video|call/i;
   // The chat's name in the header; clicking it opens the drawer (as a user would).
   const name = [...header.querySelectorAll<HTMLElement>('span, div')].find(
     (el) => !el.closest('wacrm-header') && el.children.length === 0 && el.textContent?.trim() === chatName.trim(),
   );
-  if (!name) return false;
+  if (!name) return 'no-name';
   for (let el: HTMLElement | null = name; el && el !== header; el = el.parentElement) {
-    if (danger.test(`${el.getAttribute('aria-label') ?? ''} ${el.getAttribute('title') ?? ''}`)) return false;
+    if (danger.test(`${el.getAttribute('aria-label') ?? ''} ${el.getAttribute('title') ?? ''}`)) return 'danger';
   }
   name.click();
-  return true;
+  return 'clicked';
 }
 
 /** Whether WhatsApp's info drawer is open (for the "not found" diagnostic). */

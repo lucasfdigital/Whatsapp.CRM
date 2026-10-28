@@ -72,7 +72,13 @@ export default defineUnlistedScript(() => {
     },
     async listChats() {
       const chats = await WPP().chat.list();
-      const summaries: ChatSummary[] = chats.map(toSummary);
+      const summaries: ChatSummary[] = chats.flatMap((chat: Parameters<typeof toSummary>[0]) => {
+        try {
+          return [toSummary(chat)];
+        } catch {
+          return [];
+        }
+      });
       // Same scope as WhatsApp's "Tudo" list: no archived chats, no status/newsletters.
       return summaries.filter((c) => c.kind !== 'other' && !c.archived);
     },
@@ -118,7 +124,11 @@ export default defineUnlistedScript(() => {
       if (jid) {
         post({
           type: 'message',
-          message: { jid: String(jid), at: (Number(msg.t) || Date.now() / 1000) * 1000, fromMe: Boolean(msg.id.fromMe) },
+          message: {
+            jid: String(jid),
+            at: (Number(msg.t) || Date.now() / 1000) * 1000,
+            fromMe: Boolean(msg.id.fromMe),
+          },
         });
       }
       chatsChanged();

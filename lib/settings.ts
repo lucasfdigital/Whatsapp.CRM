@@ -3,7 +3,7 @@ import { storage } from 'wxt/utils/storage';
 /** Master switch from the toolbar popup. Off = WhatsApp untouched. */
 export const enabledItem = storage.defineItem<boolean>('local:enabled', { fallback: true });
 
-/** Chips: waiting / contact / group. 'cliente' is opened from the sidebar. */
+/** Tabs: waiting / contact / group / cliente. */
 export type TabId = 'waiting' | 'contact' | 'group' | 'cliente';
 const TAB_IDS: readonly TabId[] = ['waiting', 'contact', 'group', 'cliente'];
 /** Older versions stored other ids ('all'); anything unknown opens "Aguardando". */

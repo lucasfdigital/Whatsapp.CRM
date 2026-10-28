@@ -1,5 +1,5 @@
 /* eslint-disable @next/next/no-img-element */
-import type { HTMLAttributes, Ref } from "react";
+import type { HTMLAttributes, ReactNode, Ref } from "react";
 import { cx, sortCx } from "@/utils/cx";
 
 /**
@@ -29,8 +29,8 @@ export interface AvatarProps extends HTMLAttributes<HTMLSpanElement> {
   /** Photo URL. Wins over `initials`. */
   src?: string;
   alt?: string;
-  /** Fallback initials, e.g. "M". */
-  initials?: string;
+  /** Fallback initials, e.g. "M", or a small icon. */
+  initials?: ReactNode;
   ref?: Ref<HTMLSpanElement>;
 }
 

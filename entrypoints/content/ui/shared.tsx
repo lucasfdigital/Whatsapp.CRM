@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { RiGroupLine, RiUser3Line } from '@remixicon/react';
 import { Avatar } from '@/components/base/avatar/avatar';
 import type { ChipProps } from '@/components/base/badges/chip';
 import type { ChatKind } from '@/lib/bridge/protocol';
@@ -9,7 +10,9 @@ import { useCrm, type CrmStore } from '../store';
 
 /** Root of every injected surface: BoardUI dark theme + blue accent, isolated from WhatsApp. */
 export function Surface({ className, children }: { className?: string; children: ReactNode }) {
-  return <div className={cx('dark font-sans text-text-primary antialiased [color-scheme:dark]', className)}>{children}</div>;
+  return (
+    <div className={cx('dark font-sans text-text-primary antialiased [color-scheme:dark]', className)}>{children}</div>
+  );
 }
 
 export function ChatAvatar({
@@ -39,7 +42,18 @@ export function ChatAvatar({
       size={size}
       color={kind === 'group' ? 'blue' : 'neutral'}
       src={loaded && loaded === pic ? loaded : undefined}
-      initials={initials(name)}
+      initials={
+        initials(name) === '?' ? (
+          // No letters (a phone number): a person/group glyph instead of digits.
+          kind === 'group' ? (
+            <RiGroupLine className="size-1/2" />
+          ) : (
+            <RiUser3Line className="size-1/2" />
+          )
+        ) : (
+          initials(name)
+        )
+      }
       aria-hidden
     />
   );

@@ -1,4 +1,11 @@
-import { FROM_PAGE, TO_PAGE, type BridgeRequest, type ChatSummary, type MessageSeen, type PageMessage } from './protocol';
+import {
+  FROM_PAGE,
+  TO_PAGE,
+  type BridgeRequest,
+  type ChatSummary,
+  type MessageSeen,
+  type PageMessage,
+} from './protocol';
 import { chatSummarySchema, pageMessageSchema, profilePicSchema } from './schemas';
 
 type Pending = { resolve: (v: unknown) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> };
@@ -90,7 +97,17 @@ export function createBridgeClient(target: EventTarget = window, timeoutMs = 15_
     },
     async listChats(): Promise<ChatSummary[]> {
       const raw = await request({ method: 'listChats' });
-      return chatSummarySchema.array().parse(raw);
+      if (!Array.isArray(raw)) throw new Error('listChats: resposta inválida');
+      // One malformed chat is dropped instead of failing the whole list;
+      // all of them failing means WhatsApp changed shape, which must show as an error.
+      const chats = raw.flatMap((item) => {
+        const parsed = chatSummarySchema.safeParse(item);
+        return parsed.success ? [parsed.data] : [];
+      });
+      if (raw.length > 0 && chats.length === 0) throw new Error('listChats: nenhuma conversa em formato válido');
+      if (chats.length < raw.length)
+        console.warn(`[WhatsApp CRM] ${raw.length - chats.length} conversa(s) ignorada(s)`);
+      return chats;
     },
     async getActiveChat(): Promise<ChatSummary | null> {
       const raw = await request({ method: 'getActiveChat' });

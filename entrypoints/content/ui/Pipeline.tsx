@@ -1,5 +1,6 @@
 import {
   DndContext,
+  KeyboardSensor,
   PointerSensor,
   closestCorners,
   pointerWithin,
@@ -9,7 +10,12 @@ import {
   useSensors,
   type DragEndEvent,
 } from '@dnd-kit/core';
-import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { RiCloseLine, RiLayoutColumnLine, RiTimeLine } from '@remixicon/react';
 import { useEffect, useMemo, useState } from 'react';
@@ -49,8 +55,16 @@ export function Pipeline({ store }: { store: CrmStore }) {
   const chats = useCrm(store, (s) => s.chats);
   const tracked = useCrm(store, (s) => s.tracked);
   const stages = useCrm(store, (s) => s.stages);
+  const trackedError = useCrm(store, (s) => s.trackedError);
   const left = useWorkspaceLeft(view === 'pipeline');
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    // Space picks a card up (arrows move, Space drops); Enter opens the conversation.
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+      keyboardCodes: { start: ['Space'], cancel: ['Escape'], end: ['Space'] },
+    }),
+  );
 
   useEffect(() => {
     if (view !== 'pipeline') return;
@@ -87,7 +101,8 @@ export function Pipeline({ store }: { store: CrmStore }) {
       const target = tracked[overId];
       if (!target?.stageId) return;
       stageId = target.stageId;
-      index = (columns.get(stageId) ?? []).filter((c) => c.jid !== jid).findIndex((c) => c.jid === overId);
+      // Index in the column as shown: dragging down onto a card lands after it, up lands before it.
+      index = (columns.get(stageId) ?? []).findIndex((c) => c.jid === overId);
       if (index < 0) index = 0;
     }
     store.moveToStage(jid, stageId, index).catch((err) => console.warn('[WhatsApp CRM] mover', err));
@@ -115,8 +130,9 @@ export function Pipeline({ store }: { store: CrmStore }) {
         {total === 0 ? (
           <div className="flex flex-1 items-center justify-center p-8">
             <p className="max-w-sm text-center text-body-regular text-text-tertiary">
-              Nenhum cliente ainda. Marque grupos ou conversas com a estrela nas abas Conversas e Grupos, ou pelo painel do
-              contato, e eles aparecem aqui.
+              {trackedError
+                ? `Não consegui ler os clientes salvos. ${trackedError}`
+                : 'Nenhum cliente ainda. Marque grupos ou conversas com a estrela nas abas Individual e Grupos, ou pelo botão CRM da conversa, e eles aparecem aqui.'}
             </p>
           </div>
         ) : (
@@ -155,7 +171,7 @@ function Column({
     <section
       ref={setNodeRef}
       className={cx(
-        'flex w-72 shrink-0 flex-col rounded-3xl border border-border-button-default bg-background-secondary-default transition-colors duration-150',
+        'flex min-w-48 flex-1 basis-0 flex-col rounded-3xl border border-border-button-default bg-background-secondary-default transition-colors duration-150',
         isOver && 'border-accent-600',
       )}
     >
@@ -179,7 +195,8 @@ function Column({
 function CardItem({ store, card, onOpen }: { store: CrmStore; card: Card; onOpen: (jid: string) => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: card.jid });
   const name = card.live?.name ?? card.record.displayName;
-  const lastAt = card.live?.lastAt ?? (Math.max(card.record.lastInboundAt ?? 0, card.record.lastOutboundAt ?? 0) || null);
+  const lastAt =
+    card.live?.lastAt ?? (Math.max(card.record.lastInboundAt ?? 0, card.record.lastOutboundAt ?? 0) || null);
   const unread = card.live?.unread ?? 0;
   const pic = useChatPic(store, card.jid, card.live?.pic);
 
@@ -190,6 +207,10 @@ function CardItem({ store, card, onOpen }: { store: CrmStore; card: Card; onOpen
       {...attributes}
       {...listeners}
       onClick={() => onOpen(card.jid)}
+      onKeyDown={(e) => {
+        listeners?.onKeyDown?.(e);
+        if (e.key === 'Enter') onOpen(card.jid);
+      }}
       className={cx(
         'cursor-grab rounded-2xl border border-border-button-default bg-background-primary-default p-3 transition-colors duration-150 outline-none hover:border-border-button-hover focus-visible:ring-2 focus-visible:ring-border-focus-ring active:cursor-grabbing',
         isDragging && 'opacity-60',
@@ -199,7 +220,9 @@ function CardItem({ store, card, onOpen }: { store: CrmStore; card: Card; onOpen
         <ChatAvatar name={name} kind={card.record.kind} pic={pic} size="sm" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-body-2-medium">{name}</p>
-          <p className="text-caption-1-regular text-text-tertiary">{card.record.kind === 'group' ? 'Grupo' : 'Conversa'}</p>
+          <p className="text-caption-1-regular text-text-tertiary">
+            {card.record.kind === 'group' ? 'Grupo' : 'Conversa'}
+          </p>
         </div>
         {unread > 0 && <Badge color="primary">{unread}</Badge>}
       </div>

@@ -190,6 +190,7 @@ function SidebarShell({ store, railBox }: { store: CrmStore; railBox: HTMLElemen
   // Mirror badges / selection of the native buttons (under our sidebar).
   useEffect(() => {
     const update = () => setNative(readRailItems(railBox));
+    update();
     const observer = new MutationObserver(update);
     observer.observe(railBox, {
       subtree: true,

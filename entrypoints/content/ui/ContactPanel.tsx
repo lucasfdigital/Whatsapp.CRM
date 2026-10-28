@@ -1,10 +1,4 @@
-import {
-  RiCloseLine,
-  RiContactsBook2Line,
-  RiDeleteBinLine,
-  RiPriceTag3Line,
-  RiStickyNoteLine,
-} from '@remixicon/react';
+import { RiCloseLine, RiContactsBook2Line, RiDeleteBinLine, RiPriceTag3Line, RiStickyNoteLine } from '@remixicon/react';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Chip } from '@/components/base/badges/chip';
 import { Button } from '@/components/base/buttons/button';
@@ -24,30 +18,36 @@ export function HeaderButton({ store }: { store: CrmStore }) {
   const stage = useCrm(store, (s) => s.stages.find((st) => st.id === record?.stageId));
   const isCliente = record?.status === 'cliente';
 
-  const [missing, setMissing] = useState(false);
+  const [missing, setMissing] = useState<string | null>(null);
   const openCrm = () => {
     if (!active) return;
-    setMissing(false);
-    openContactInfo(active.name);
+    setMissing(null);
+    const opened = openContactInfo(active.name);
     // The drawer (and our section in it) mounts a moment later.
     let tries = 0;
     const scroll = () => {
-      const section = document.querySelector('wacrm-info');
-      if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const section = document.querySelector<HTMLElement>('wacrm-info');
+      if (section) scrollDrawerTo(section);
       else if (tries++ < 20) window.setTimeout(scroll, 100);
-      else setMissing(true);
+      else setMissing(opened);
     };
     scroll();
   };
 
   return (
     <Surface className="flex items-center gap-2 ps-2">
-      <Button size="small" variant="secondary" leadingIcon={RiContactsBook2Line} title="Abrir CRM nos dados do contato" onClick={openCrm}>
+      <Button
+        size="small"
+        variant="secondary"
+        leadingIcon={RiContactsBook2Line}
+        title="Abrir CRM nos dados do contato"
+        onClick={openCrm}
+      >
         CRM
       </Button>
       {missing && (
         <span className="text-caption-1-regular text-text-error-primary">
-          {isContactInfoOpen() ? 'Seção do CRM não montou' : 'Dados do contato não encontrados'}
+          {isContactInfoOpen() ? 'Seção do CRM não montou' : `Dados do contato não encontrados (${missing})`}
         </span>
       )}
       {isCliente && stage && (
@@ -57,6 +57,20 @@ export function HeaderButton({ store }: { store: CrmStore }) {
       )}
     </Surface>
   );
+}
+
+/**
+ * Scrolls only the drawer's own scroll area to the section. scrollIntoView
+ * would also scroll WhatsApp's overflow-hidden page and shift the whole app up.
+ */
+function scrollDrawerTo(section: HTMLElement) {
+  for (let el = section.parentElement; el; el = el.parentElement) {
+    const { overflowY } = getComputedStyle(el);
+    if (overflowY !== 'auto' && overflowY !== 'scroll') continue;
+    const top = section.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop;
+    el.scrollTo({ top, behavior: 'smooth' });
+    return;
+  }
 }
 
 /** CRM section inside WhatsApp's "Dados do contato/grupo" drawer, under the photo and name. */
@@ -131,7 +145,15 @@ function PanelBody({ store, chat }: { store: CrmStore; chat: ChatSummary }) {
   );
 }
 
-function Section({ title, icon: Icon, children }: { title: string; icon?: typeof RiPriceTag3Line; children: ReactNode }) {
+function Section({
+  title,
+  icon: Icon,
+  children,
+}: {
+  title: string;
+  icon?: typeof RiPriceTag3Line;
+  children: ReactNode;
+}) {
   return (
     <section className="flex flex-col gap-3">
       <h3 className="flex items-center gap-1.5 text-caption-1-semibold text-text-tertiary uppercase">
@@ -215,7 +237,10 @@ function Notes({ store, jid }: { store: CrmStore; jid: string }) {
       {notes.length > 0 && (
         <ul className="flex flex-col gap-2">
           {notes.map((note) => (
-            <li key={note.id} className="group rounded-xl border border-border-button-default bg-background-secondary-default p-3">
+            <li
+              key={note.id}
+              className="group rounded-xl border border-border-button-default bg-background-secondary-default p-3"
+            >
               <div className="mb-1 flex items-center justify-between gap-2">
                 <span className="text-caption-1-medium text-text-tertiary">
                   {new Date(note.createdAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}

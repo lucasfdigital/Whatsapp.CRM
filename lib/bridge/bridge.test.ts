@@ -55,11 +55,16 @@ describe('bridge client', () => {
     expect(await client.listChats()).toEqual([sample]);
   });
 
-  it('rejects malformed data from the page', async () => {
+  it('drops malformed chats from the page and rejects a non-list', async () => {
     const target = new EventTarget();
     fakePage(target, () => [{ jid: '' }]);
-    const client = createBridgeClient(target);
-    await expect(client.listChats()).rejects.toThrow();
+    await expect(createBridgeClient(target).listChats()).rejects.toThrow(/formato/);
+    const empty = new EventTarget();
+    fakePage(empty, () => []);
+    await expect(createBridgeClient(empty).listChats()).resolves.toEqual([]);
+    const other = new EventTarget();
+    fakePage(other, () => ({ jid: 'x' }));
+    await expect(createBridgeClient(other).listChats()).rejects.toThrow();
   });
 
   it('times out when the page never answers', async () => {

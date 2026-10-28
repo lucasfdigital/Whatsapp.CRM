@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { memoryKV } from './kv';
 import { migrate } from './migrations';
 import { createRepo } from './repo';
+import { KEYS } from './schema';
 import { SCHEMA_VERSION } from './schema';
 
 const group = { jid: '120363000000000000@g.us', kind: 'group' as const, displayName: 'Cliente ACME' };
@@ -108,6 +109,32 @@ describe('v2: pipeline + notes', () => {
     }
     expect(await repo.getChat('a@g.us')).toMatchObject({ stageId: 'onboarding', position: 0 });
     expect(await repo.getChat('b@g.us')).toMatchObject({ stageId: 'onboarding', position: 1 });
+  });
+
+  it('un-marking a cliente drops its stage; re-marking starts over in the first one', async () => {
+    const repo = createRepo(memoryKV());
+    for (const jid of ['a@g.us', 'b@g.us']) {
+      await repo.trackChat({ jid, kind: 'group', displayName: jid });
+      await repo.setStatus(jid, 'cliente');
+    }
+    await repo.moveToStage('a@g.us', 'ativo', 0);
+    expect(await repo.setStatus('a@g.us', 'none')).toMatchObject({ stageId: null });
+    // Dropping at the end of Onboarding counts only visible clientes.
+    await repo.moveToStage('b@g.us', 'ativo', 0);
+    expect(await repo.getChat('b@g.us')).toMatchObject({ stageId: 'ativo', position: 0 });
+    expect(await repo.setStatus('a@g.us', 'cliente')).toMatchObject({ stageId: 'onboarding' });
+  });
+
+  it('re-marking an old ex-cliente with a stale stage starts in the first stage', async () => {
+    const kv = memoryKV();
+    const repo = createRepo(kv);
+    await repo.trackChat({ jid: 'a@g.us', kind: 'group', displayName: 'A' });
+    await repo.setStatus('a@g.us', 'cliente');
+    await repo.moveToStage('a@g.us', 'ativo', 0);
+    // Data written before un-marking cleared the stage.
+    const { [KEYS.chats]: stored } = (await kv.get([KEYS.chats])) as Record<string, Record<string, object>>;
+    await kv.set({ [KEYS.chats]: { ...stored, 'a@g.us': { ...stored!['a@g.us'], status: 'none' } } });
+    expect(await repo.setStatus('a@g.us', 'cliente')).toMatchObject({ stageId: 'onboarding' });
   });
 
   it('moves a card between columns and renumbers positions', async () => {

@@ -16,6 +16,8 @@ export interface CrmState {
   error?: string;
   chats: ChatSummary[];
   tracked: Record<string, ChatRecord>;
+  /** Our own storage failed: Clientes and the Pipeline can't be trusted to be empty. */
+  trackedError?: string;
   stages: Stage[];
   activeChat: ChatSummary | null;
   view: View;
@@ -44,18 +46,26 @@ export function createCrmStore(bridge: BridgeClient, repo: Repo) {
   const subs = new Set<() => void>();
   const picQueue: string[] = [];
   const picLoading = new Set<string>();
+  /** Failed photo fetches per chat: retried once, then treated as "no photo" (no refetch on every scroll). */
+  const picFailures = new Map<string, number>();
   const pumpPics = () => {
     while (picLoading.size < PIC_CONCURRENCY && picQueue.length > 0) {
       const jid = picQueue.shift()!;
       picLoading.add(jid);
-      bridge
-        .getProfilePic(jid)
-        .catch(() => null)
-        .then((pic) => {
+      bridge.getProfilePic(jid).then(
+        (pic) => {
           picLoading.delete(jid);
           set({ pics: { ...state.pics, [jid]: pic } });
           pumpPics();
-        });
+        },
+        () => {
+          picLoading.delete(jid);
+          const failures = (picFailures.get(jid) ?? 0) + 1;
+          picFailures.set(jid, failures);
+          if (failures >= 2) set({ pics: { ...state.pics, [jid]: null } });
+          pumpPics();
+        },
+      );
     }
   };
   const set = (patch: Partial<CrmState>) => {
@@ -76,8 +86,14 @@ export function createCrmStore(bridge: BridgeClient, repo: Repo) {
   };
 
   const loadTracked = async () => {
-    const [list, stages] = await Promise.all([repo.listChats(), repo.listStages()]);
-    set({ tracked: Object.fromEntries(list.map((c) => [c.jid, c])), stages });
+    try {
+      const [list, stages] = await Promise.all([repo.listChats(), repo.listStages()]);
+      set({ tracked: Object.fromEntries(list.map((c) => [c.jid, c])), stages, trackedError: undefined });
+    } catch (err) {
+      // Without this, Clientes and the Pipeline would just look empty.
+      console.warn('[WhatsApp CRM] storage', err);
+      set({ trackedError: String(err) });
+    }
   };
 
   const loadActive = async () => {
@@ -119,6 +135,7 @@ export function createCrmStore(bridge: BridgeClient, repo: Repo) {
     },
     stop() {
       offs.splice(0).forEach((off) => off());
+      picQueue.length = 0;
     },
 
     setView: (view: View) => set({ view }),

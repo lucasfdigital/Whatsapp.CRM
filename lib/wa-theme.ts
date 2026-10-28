@@ -131,6 +131,8 @@ function paneCardCss(ground: string, card: string): string[] {
     // Search, ⋮ and + in one row: header laid over the search row's end (see layoutListHeader).
     `[data-wacrm-pane="left"] { position: relative !important; }`,
     `[data-wacrm-hdr] { position: absolute !important; top: var(--wacrm-hdr-top, 0px) !important; inset-inline-end: var(--wacrm-hdr-end, 0px) !important; inset-inline-start: auto !important; width: auto !important; z-index: 2 !important; background: transparent !important; }`,
+    // Hover circles of ⋮ and + overflow their small boxes; don't clip them.
+    `[data-wacrm-hdr], [data-wacrm-hdr] div, [data-wacrm-hdr] span { overflow: visible !important; }`,
     `[data-wacrm-hdrtitle] { display: none !important; }`,
     `[data-wacrm-searchrow] { padding-inline-end: var(--wacrm-search-pe, 96px) !important; }`,
     // Behind the round corners: the ground, not WhatsApp's surface color.

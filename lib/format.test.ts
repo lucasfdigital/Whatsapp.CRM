@@ -27,6 +27,7 @@ describe('initials', () => {
     expect(initials('NETWORKING DIGITAL 🚀🔥')).toBe('ND');
     expect(initials('Paulo')).toBe('P');
     expect(initials('🚀')).toBe('?');
+    expect(initials('+55 11 99999-0001')).toBe('?');
   });
 });
 

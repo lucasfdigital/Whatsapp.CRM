@@ -112,11 +112,19 @@ export function createRepo(kv: KV, now: () => number = Date.now) {
       const chats = await updateChats((chats) => {
         const chat = chats[jid];
         if (!chat) throw new Error(`Chat não rastreado: ${jid}`);
-        const needsStage = status === 'cliente' && chat.stageId == null;
+        // Becoming a cliente (again) always starts in the first stage; older data may keep a stale stageId.
+        const needsStage = status === 'cliente' && (chat.status !== 'cliente' || chat.stageId == null);
         const position = needsStage
-          ? Math.max(0, ...Object.values(chats).filter((c) => c.stageId === firstStage).map((c) => c.position + 1))
+          ? Math.max(
+              0,
+              ...Object.values(chats)
+                .filter((c) => c.stageId === firstStage)
+                .map((c) => c.position + 1),
+            )
           : chat.position;
-        chats[jid] = { ...chat, status, stageId: needsStage ? firstStage : chat.stageId, position, updatedAt: now() };
+        // Leaving the clientes drops the stage: a re-marked chat starts over in the first one.
+        const stageId = status !== 'cliente' ? null : needsStage ? firstStage : chat.stageId;
+        chats[jid] = { ...chat, status, stageId, position: stageId == null ? 0 : position, updatedAt: now() };
       });
       return chats[jid]!;
     },
@@ -137,7 +145,7 @@ export function createRepo(kv: KV, now: () => number = Date.now) {
         const chat = chats[jid];
         if (!chat) throw new Error(`Chat não rastreado: ${jid}`);
         const column = Object.values(chats)
-          .filter((c) => c.stageId === stageId && c.jid !== jid)
+          .filter((c) => c.stageId === stageId && c.status === 'cliente' && c.jid !== jid)
           .sort((a, b) => a.position - b.position);
         column.splice(Math.max(0, Math.min(index, column.length)), 0, chat);
         const t = now();

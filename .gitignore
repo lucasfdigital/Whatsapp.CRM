@@ -5,3 +5,4 @@ build
 *.log
 public/wppconnect-wa.js
 .DS_Store
+probe-drawer.js

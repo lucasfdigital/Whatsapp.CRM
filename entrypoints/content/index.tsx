@@ -46,10 +46,8 @@ export default defineContentScript({
     repo.init().catch((err) => console.error('[WhatsApp CRM] storage', err));
     const store = createCrmStore(bridge, repo);
 
-    // Keep time/direction of the last message for tracked chats (needed for "sem resposta").
-    bridge.on('message', ({ jid, at, fromMe }) => {
-      repo.recordMessage(jid, at, fromMe).catch((err) => console.warn('[WhatsApp CRM]', err));
-    });
+    // Keep time/direction of the last message for tracked chats (needed for "sem resposta"); only while on.
+    let offMessage: (() => void) | undefined;
 
     const surfaces = await Promise.all([
       // BoardUI dark/blue theme applied to WhatsApp's own UI.
@@ -63,12 +61,30 @@ export default defineContentScript({
       surface(ctx, 'wacrm-sidebar', { anchor: 'body', append: 'last' }, <Sidebar store={store} />),
       // "CRM" toggle in the open conversation's header.
       // Clicks must not reach WhatsApp's header (it opens "Dados do contato").
-      surface(ctx, 'wacrm-header', { anchor: SELECTORS.mainHeader, append: 'last', isolate: ['click', 'mousedown', 'mouseup', 'pointerdown', 'pointerup'] }, <HeaderButton store={store} />),
+      surface(
+        ctx,
+        'wacrm-header',
+        {
+          anchor: SELECTORS.mainHeader,
+          append: 'last',
+          isolate: ['click', 'mousedown', 'mouseup', 'pointerdown', 'pointerup'],
+        },
+        <HeaderButton store={store} />,
+      ),
       // Fixed overlays (pipeline workspace, contact panel) hang off <body>.
       surface(ctx, 'wacrm-pipeline', { anchor: 'body', append: 'last' }, <Pipeline store={store} />),
       // CRM section inside WhatsApp's "Dados do contato/grupo", after photo and name (markInfoSlot).
       // Typing and clicks must not reach WhatsApp's shortcuts and drawer handlers.
-      surface(ctx, 'wacrm-info', { anchor: `[${INFO_SLOT_ATTR}]`, append: 'after', isolate: ['keydown', 'keyup', 'keypress', 'click', 'mousedown', 'mouseup', 'pointerdown', 'pointerup'] }, <InfoCrm store={store} />),
+      surface(
+        ctx,
+        'wacrm-info',
+        {
+          anchor: `[${INFO_SLOT_ATTR}]`,
+          append: 'after',
+          isolate: ['keydown', 'keyup', 'keypress', 'click', 'mousedown', 'mouseup', 'pointerdown', 'pointerup'],
+        },
+        <InfoCrm store={store} />,
+      ),
     ]);
 
     // The rail has no stable id: tag it so autoMount can anchor on a selector.
@@ -97,12 +113,17 @@ export default defineContentScript({
         on = true;
         setStatus('wacrm', 'aguardando-lista');
         store.start();
+        offMessage = bridge.on('message', ({ jid, at, fromMe }) => {
+          repo.recordMessage(jid, at, fromMe).catch((err) => console.warn('[WhatsApp CRM]', err));
+        });
         tick();
         railTimer = window.setInterval(tick, 1000);
         surfaces.forEach((ui) => ui.autoMount());
       } else if (!enabled) {
         on = false;
         store.stop();
+        offMessage?.();
+        offMessage = undefined;
         window.clearInterval(railTimer);
         surfaces.forEach((ui) => ui.remove());
         setAppShift(0);
@@ -122,6 +143,10 @@ export default defineContentScript({
     const unwatch = enabledItem.watch(apply);
     ctx.onInvalidated(() => {
       unwatch();
+      // The page outlives this script: stop listening, or every WhatsApp event hits a dead context.
+      store.stop();
+      offMessage?.();
+      bridge.dispose();
       window.clearInterval(railTimer);
       setAppShift(0);
       setRailVisible(null, true);

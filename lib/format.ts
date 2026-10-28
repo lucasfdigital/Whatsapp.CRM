@@ -13,10 +13,10 @@ export function formatChatTime(at: number | null, now: Date = new Date()): strin
   return d.toLocaleDateString('pt-BR');
 }
 
-/** Up to two initials for the avatar placeholder. */
+/** Up to two initials for the avatar placeholder; '?' when the name has no letters (a phone number, emoji only). */
 export function initials(name: string): string {
   const words = name
-    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/[^\p{L}\s]/gu, ' ')
     .trim()
     .split(/\s+/)
     .filter(Boolean);

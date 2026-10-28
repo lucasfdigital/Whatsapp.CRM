@@ -17,9 +17,8 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'waiting', label: 'Aguardando' },
   { id: 'contact', label: 'Individual' },
   { id: 'group', label: 'Grupos' },
+  { id: 'cliente', label: 'Clientes' },
 ];
-/** Opened from the sidebar; shown as a tab only while it is the current one. */
-const CLIENTES_TAB = { id: 'cliente', label: 'Clientes' } as const;
 
 /** Row in our list: live WhatsApp data, or the stored record when WhatsApp doesn't list the chat. */
 interface Row {
@@ -45,6 +44,7 @@ interface Row {
 export function TabBar({ store }: { store: CrmStore }) {
   const status = useCrm(store, (s) => s.status);
   const error = useCrm(store, (s) => s.error);
+  const trackedError = useCrm(store, (s) => s.trackedError);
   const chats = useCrm(store, (s) => s.chats);
   const tracked = useCrm(store, (s) => s.tracked);
   const pics = useCrm(store, (s) => s.pics);
@@ -128,15 +128,14 @@ export function TabBar({ store }: { store: CrmStore }) {
   return (
     <Surface className="flex flex-col">
       <Tabs selectedKey={tab} onSelectionChange={(key) => activeTabItem.setValue(toTabId(key))} className="px-2 pb-1">
-        {/* Compact padding and no icons: three tabs with 3-digit counts must fit the narrow list. */}
+        {/* Compact padding, no icons, and counts only on Aguardando and the current tab: four tabs must fit the narrow list. */}
         <TabList aria-label="Filtros do CRM" className="overflow-x-auto [scrollbar-width:none]">
-          {[...TABS, ...(tab === 'cliente' ? [CLIENTES_TAB] : [])].map((item) => (
+          {TABS.map((item) => (
             <Tab
               key={item.id}
               id={item.id}
-              // With the extra Clientes tab only the current tab keeps its count, so four still fit.
-              count={tab === 'cliente' && item.id !== tab ? undefined : status === 'ready' ? counts[item.id] : '…'}
-              className="flex-1 justify-center gap-1.5 px-1.5"
+              count={item.id !== 'waiting' && item.id !== tab ? undefined : status === 'ready' ? counts[item.id] : '…'}
+              className="flex-1 justify-center gap-1 px-1"
             >
               {item.label}
             </Tab>
@@ -162,6 +161,7 @@ export function TabBar({ store }: { store: CrmStore }) {
           onVisible={(jid) => store.requestPic(jid)}
           status={status}
           error={error}
+          trackedError={trackedError}
           tab={tab}
           query={query}
           onOpen={(jid) => store.openChat(jid)}
@@ -179,12 +179,13 @@ function ChatList(props: {
   onVisible: (jid: string) => void;
   status: LoadStatus;
   error?: string;
+  trackedError?: string;
   tab: TabId;
   query: string;
   onOpen: (jid: string) => void;
   onToggleCliente: (row: Row) => void;
 }) {
-  const { rows, status, error, tab, query, pics, onVisible } = props;
+  const { rows, status, error, trackedError, tab, query, pics, onVisible } = props;
   const ref = useRef<HTMLDivElement>(null);
   const height = useFillViewport(ref);
 
@@ -214,7 +215,9 @@ function ChatList(props: {
     empty = query.trim()
       ? 'Nada encontrado.'
       : tab === 'cliente'
-        ? 'Nenhum cliente ainda. Use a estrela ao lado de um grupo ou conversa para marcar como cliente.'
+        ? trackedError
+          ? `Não consegui ler os clientes salvos. ${trackedError}`
+          : 'Nenhum cliente ainda. Use a estrela ao lado de um grupo ou conversa para marcar como cliente.'
         : tab === 'waiting'
           ? 'Tudo em dia: nenhuma conversa aguardando você.'
           : 'Nenhuma conversa.';
@@ -240,7 +243,15 @@ function ChatList(props: {
             >
               <NotificationCard
                 onClick={() => props.onOpen(row.jid)}
-                className="cursor-pointer transition-colors duration-150 hover:bg-background-primary-hover"
+                role="button"
+                tabIndex={0}
+                aria-label={row.name}
+                onKeyDown={(e) => {
+                  if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return;
+                  e.preventDefault();
+                  props.onOpen(row.jid);
+                }}
+                className="cursor-pointer transition-colors duration-150 outline-none hover:bg-background-primary-hover focus-visible:ring-2 focus-visible:ring-border-focus-ring"
                 visual={<ChatAvatar name={row.name} kind={row.kind} pic={row.pic ?? pics[row.jid]} />}
                 title={<span className="block truncate">{row.name}</span>}
                 timestamp={
@@ -298,7 +309,15 @@ function useFillViewport(ref: RefObject<HTMLElement | null>): number {
     };
     update();
     window.addEventListener('resize', update);
-    return () => window.removeEventListener('resize', update);
+    // Content above us (the loading hint, WhatsApp's header) can move our top without a resize.
+    const observer = new ResizeObserver(update);
+    const root = ref.current?.getRootNode();
+    if (root instanceof ShadowRoot) observer.observe(root.host);
+    if (ref.current?.parentElement) observer.observe(ref.current.parentElement);
+    return () => {
+      window.removeEventListener('resize', update);
+      observer.disconnect();
+    };
   }, [ref]);
   return height;
 }
