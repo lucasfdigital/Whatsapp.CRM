@@ -11,6 +11,7 @@ import { Tab, TabList, Tabs } from '@/components/base/tabs/tabs';
 import { NotificationCard } from '@/components/application/notification-center/notification-center';
 import { cx } from '@/utils/cx';
 import { useCrm, type CrmStore, type LoadStatus } from '../store';
+import { ChatMenu } from './ChatMenu';
 import { ChatAvatar, Surface } from './shared';
 
 const TABS: { id: TabId; label: string }[] = [
@@ -29,6 +30,9 @@ interface Row {
   unread: number;
   lastFromMe: boolean | null;
   markedUnread?: boolean;
+  archived: boolean;
+  pinned?: boolean;
+  muted?: boolean;
   pic?: string | null;
   /** Last message line, display only (never stored). */
   preview?: string | null;
@@ -45,6 +49,7 @@ export function TabBar({ store }: { store: CrmStore }) {
   const status = useCrm(store, (s) => s.status);
   const error = useCrm(store, (s) => s.error);
   const trackedError = useCrm(store, (s) => s.trackedError);
+  const [portal, setPortal] = useState<HTMLDivElement | null>(null);
   const chats = useCrm(store, (s) => s.chats);
   const tracked = useCrm(store, (s) => s.tracked);
   const pics = useCrm(store, (s) => s.pics);
@@ -98,6 +103,7 @@ export function TabBar({ store }: { store: CrmStore }) {
         lastAt: Math.max(r.lastInboundAt ?? 0, r.lastOutboundAt ?? 0) || null,
         unread: 0,
         lastFromMe: null,
+        archived: false,
         isCliente: true,
         live: false,
       }));
@@ -167,8 +173,11 @@ export function TabBar({ store }: { store: CrmStore }) {
           query={query}
           onOpen={(jid) => store.openChat(jid)}
           onToggleCliente={(row) => store.setCliente(row, !row.isCliente)}
+          store={store}
+          portal={portal}
         />
       )}
+      <div ref={setPortal} />
     </Surface>
   );
 }
@@ -185,6 +194,9 @@ function ChatList(props: {
   query: string;
   onOpen: (jid: string) => void;
   onToggleCliente: (row: Row) => void;
+  store: CrmStore;
+  /** Inside our shadow root: menus portal here so they keep our styles. */
+  portal: Element | null;
 }) {
   const { rows, status, error, trackedError, tab, query, pics, onVisible } = props;
   const ref = useRef<HTMLDivElement>(null);
@@ -253,11 +265,18 @@ function ChatList(props: {
                   props.onOpen(row.jid);
                 }}
                 className="cursor-pointer transition-colors duration-150 outline-none hover:bg-background-primary-hover focus-visible:ring-2 focus-visible:ring-border-focus-ring"
-                visual={<ChatAvatar name={row.name} kind={row.kind} pic={row.pic ?? pics[row.jid]} />}
-                title={<span className="block truncate">{row.name}</span>}
+                visual={
+                  <span className="wacrm-blur-photos shrink-0">
+                    <ChatAvatar name={row.name} kind={row.kind} pic={row.pic ?? pics[row.jid]} />
+                  </span>
+                }
+                title={<span className="wacrm-blur-names block truncate">{row.name}</span>}
                 timestamp={
-                  <span className={row.unread || row.markedUnread ? 'text-accent-400' : undefined}>
-                    {formatChatTime(row.lastAt)}
+                  <span className="inline-flex items-center gap-1">
+                    <span className={row.unread || row.markedUnread ? 'text-accent-400' : undefined}>
+                      {formatChatTime(row.lastAt)}
+                    </span>
+                    {row.live && <ChatMenu store={props.store} chat={row} portal={props.portal} />}
                   </span>
                 }
                 trailing={
@@ -269,7 +288,12 @@ function ChatList(props: {
                 }
                 description={
                   <span className="flex items-center gap-2">
-                    <span className={cx('min-w-0 flex-1 truncate', !row.preview && 'text-text-tertiary')}>
+                    <span
+                      className={cx(
+                        'wacrm-blur-previews min-w-0 flex-1 truncate',
+                        !row.preview && 'text-text-tertiary',
+                      )}
+                    >
                       {row.preview || (row.kind === 'group' ? 'Grupo' : 'Conversa')}
                     </span>
                     <button

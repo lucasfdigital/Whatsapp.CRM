@@ -23,12 +23,21 @@ function fakePage(target: EventTarget, respond: (req: any) => unknown) {
 
 describe('lastSpokeMe', () => {
   it('skips group notices and other system entries', () => {
-    const msgs = [{ type: 'chat', id: { fromMe: true } }, { type: 'gp2', id: { fromMe: false } }, { type: 'e2e_notification' }];
+    const msgs = [
+      { type: 'chat', id: { fromMe: true } },
+      { type: 'gp2', id: { fromMe: false } },
+      { type: 'e2e_notification' },
+    ];
     expect(lastSpokeMe(msgs)).toBe(true);
   });
 
   it('skips entries flagged as notifications', () => {
-    expect(lastSpokeMe([{ type: 'chat', id: { fromMe: false } }, { type: 'chat', isNotification: true, id: { fromMe: true } }])).toBe(false);
+    expect(
+      lastSpokeMe([
+        { type: 'chat', id: { fromMe: false } },
+        { type: 'chat', isNotification: true, id: { fromMe: true } },
+      ]),
+    ).toBe(false);
   });
 
   it('is null without real messages', () => {
@@ -99,7 +108,9 @@ describe('previewOf', () => {
     expect(previewOf({ type: 'image', id: { fromMe: false }, senderName: 'Ana' }, true)).toBe('Ana: 📷 Foto');
     expect(previewOf({ type: 'image', caption: 'nota', id: { fromMe: false } }, false)).toBe('📷 nota');
     expect(previewOf({ type: 'ptt', id: { fromMe: true } }, true)).toBe('Você: 🎤 Áudio');
-    expect(previewOf({ type: 'chat', body: 'oi', id: { fromMe: false }, senderName: '+1 511 4359066826' }, true)).toBe('oi');
+    expect(previewOf({ type: 'chat', body: 'oi', id: { fromMe: false }, senderName: '+1 511 4359066826' }, true)).toBe(
+      'oi',
+    );
   });
   it('cuts long text and returns null when there is nothing to show', () => {
     expect(previewOf({ type: 'chat', body: 'x'.repeat(300), id: {} }, false)?.length).toBe(140);

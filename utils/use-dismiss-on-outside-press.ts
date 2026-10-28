@@ -20,8 +20,9 @@ export function useDismissOnOutsidePress(
     if (!isOpen) return;
 
     const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target as Node;
-      if (refs.some((ref) => ref.current?.contains(target))) return;
+      // composedPath: inside a shadow root, event.target is retargeted to the host.
+      const path = event.composedPath();
+      if (refs.some((ref) => ref.current && path.includes(ref.current))) return;
       onDismiss();
     };
 
@@ -53,7 +54,7 @@ export function useTriggerToggle(
     if (!isOpen) return;
 
     const handlePointerDown = (event: PointerEvent) => {
-      if (!triggerRef.current?.contains(event.target as Node)) return;
+      if (!triggerRef.current || !event.composedPath().includes(triggerRef.current)) return;
       suppressReopenRef.current = true;
       // Safety valve: only the very next open within this click may be
       // swallowed; never leave a stale suppression behind.

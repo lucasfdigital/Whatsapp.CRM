@@ -84,7 +84,7 @@ export function NavItem({
   badge,
   isSelected = false,
   collapsed = false,
-  href = "#",
+  href,
   onClick,
 }: {
   icon: IconComponent;
@@ -98,8 +98,20 @@ export function NavItem({
 }) {
   const localize = useTemplateCopy();
   return localize((
+    // Without an href it is an action row: no "#" link (and no URL in the status bar on hover).
     <a
       href={href}
+      role={href ? undefined : "button"}
+      tabIndex={href ? undefined : 0}
+      onKeyDown={
+        href || !onClick
+          ? undefined
+          : (event) => {
+              if (event.key !== "Enter" && event.key !== " ") return;
+              event.preventDefault();
+              onClick();
+            }
+      }
       onClick={
         onClick
           ? (event) => {
@@ -112,7 +124,8 @@ export function NavItem({
       aria-label={label}
       title={collapsed ? label : undefined}
       className={cx(
-        "flex items-center justify-between overflow-hidden rounded-2lg p-2",
+        "flex cursor-pointer items-center justify-between overflow-hidden rounded-2lg p-2",
+        "outline-none focus-visible:ring-2 focus-visible:ring-border-focus-ring",
         "transition-[width,background-color] duration-300 ease-in-out",
         collapsed ? "w-9" : "w-full",
         isSelected

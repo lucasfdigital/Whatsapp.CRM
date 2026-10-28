@@ -14,6 +14,7 @@ import {
   RiMoneyDollarCircleLine,
   RiUserAddLine,
   RiDonutChartLine,
+  RiEyeOffLine,
   RiGroupLine,
   RiImageLine,
   RiLayoutColumnLine,
@@ -29,6 +30,7 @@ import {
 } from '@remixicon/react';
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { NavItem } from '@/components/application/dashboard/dashboard-sidebar';
+import { activeCount } from '@/lib/privacy';
 import { Badge } from '@/components/base/badges/badge';
 import { activeTabItem } from '@/lib/settings';
 import { categorize, type Category } from '@/lib/sidebar-categories';
@@ -52,6 +54,7 @@ import {
 import { cx } from '@/utils/cx';
 import { useCrm, type CrmStore } from '../store';
 import { Surface } from './shared';
+import { PrivacyPanel, usePrivacy } from './PrivacyPanel';
 
 /** Minimum stacking level; raised at runtime above WhatsApp's own app layer (zIndexAbove). */
 const SIDEBAR_Z = 10;
@@ -103,6 +106,9 @@ const NATIVE_ICONS: Array<[RegExp, RemixiconComponentType]> = [
  * entry, so nothing is lost; ones missing from the account's menu leave the
  * menu open for the user.
  */
+/** ⋮ menu entries not shown in the sidebar (still listed in MENU_ACTIONS: they help recognize the menu). */
+const SIDEBAR_HIDDEN =
+  /^(mensagens favoritas|starred messages|listas|lists|marcar todas como lidas|mark all as read|selecionar conversas|select chats)$/i;
 const MENU_ACTIONS = [
   'Ferramentas comerciais',
   'Novo grupo',
@@ -150,6 +156,8 @@ function SidebarShell({ store, railBox }: { store: CrmStore; railBox: HTMLElemen
   const [hasNewChat, setHasNewChat] = useState(false);
   const [hasMenu, setHasMenu] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
+  const privacyOn = activeCount(usePrivacy());
   const [zIndex, setZIndex] = useState(SIDEBAR_Z);
   useLayoutEffect(() => {
     const shell = shellRef.current;
@@ -220,6 +228,8 @@ function SidebarShell({ store, railBox }: { store: CrmStore; railBox: HTMLElemen
   const has = (re: RegExp) => top.some((i) => re.test(i.label));
   const menuEntries: Entry[] = hasMenu
     ? MENU_ACTIONS
+        // Left out on purpose (the user's call): they stay in WhatsApp's own ⋮ menu.
+        .filter((label) => !SIDEBAR_HIDDEN.test(label))
         // The rail already has these.
         .filter(
           (label) =>
@@ -352,6 +362,14 @@ function SidebarShell({ store, railBox }: { store: CrmStore; railBox: HTMLElemen
           </div>
 
           <div className="flex w-full shrink-0 flex-col gap-1 border-t border-separator-border pt-3">
+            {privacyOpen && <PrivacyPanel />}
+            <NavItem
+              icon={RiEyeOffLine}
+              label="Privacidade"
+              isSelected={privacyOpen}
+              onClick={() => setPrivacyOpen((open) => !open)}
+              badge={privacyOn ? <Badge color={privacyOpen ? 'primary' : 'neutral'}>{privacyOn}</Badge> : undefined}
+            />
             {diagnostics.map((d) => (
               <p key={d} className="px-2 text-caption-1-regular break-all text-text-tertiary">
                 {d}

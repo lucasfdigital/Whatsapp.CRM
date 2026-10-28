@@ -69,8 +69,9 @@ export function Pipeline({ store }: { store: CrmStore }) {
   useEffect(() => {
     if (view !== 'pipeline') return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && store.setView('none');
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    // Capture: the sidebar's shadow host stops keydown from bubbling out (isolateEvents).
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
   }, [view, store]);
 
   const columns = useMemo(() => {
@@ -217,9 +218,11 @@ function CardItem({ store, card, onOpen }: { store: CrmStore; card: Card; onOpen
       )}
     >
       <div className="flex items-center gap-3">
-        <ChatAvatar name={name} kind={card.record.kind} pic={pic} size="sm" />
+        <span className="wacrm-blur-photos shrink-0">
+          <ChatAvatar name={name} kind={card.record.kind} pic={pic} size="sm" />
+        </span>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-body-2-medium">{name}</p>
+          <p className="wacrm-blur-names truncate text-body-2-medium">{name}</p>
           <p className="text-caption-1-regular text-text-tertiary">
             {card.record.kind === 'group' ? 'Grupo' : 'Conversa'}
           </p>

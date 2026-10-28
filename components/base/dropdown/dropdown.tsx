@@ -124,6 +124,8 @@ export interface DropdownPopoverProps
   className?: string;
   /** Classes on the inner dialog (the flex column), e.g. gap between groups. */
   dialogClassName?: string;
+  /** Where the panel is portalled (default document.body), e.g. inside a shadow root. */
+  portalContainer?: Element;
   children: ReactNode;
 }
 
@@ -134,6 +136,7 @@ export function DropdownPopover({
   crossOffset,
   className,
   dialogClassName,
+  portalContainer,
   children,
 }: DropdownPopoverProps) {
   const context = useContext(DropdownContext);
@@ -141,6 +144,7 @@ export function DropdownPopover({
     <AriaPopover
       ref={context?.popoverRef}
       isNonModal
+      UNSTABLE_portalContainer={portalContainer}
       placement={placement}
       offset={offset}
       crossOffset={crossOffset}

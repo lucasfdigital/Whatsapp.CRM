@@ -20,9 +20,13 @@ export const chatSummarySchema = z.object({
   archived: z.boolean(),
   lastFromMe: z.boolean().nullable(),
   markedUnread: z.boolean().optional(),
+  pinned: z.boolean().optional(),
+  muted: z.boolean().optional(),
   pic: profilePicSchema.optional(),
   preview: z.string().max(200).nullable().optional(),
 }) satisfies z.ZodType<ChatSummary>;
+
+export const chatListsSchema = z.array(z.object({ id: z.string().min(1), name: z.string() }));
 
 export const messageSeenSchema = z.object({
   jid: z.string().min(1),

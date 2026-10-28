@@ -82,7 +82,9 @@ export function InfoCrm({ store }: { store: CrmStore }) {
       <section aria-label="CRM" className="flex flex-col gap-4 border-y border-separator-border px-6 py-5">
         <h2 className="flex items-center gap-1.5 text-headline-medium">
           <RiContactsBook2Line className="size-5 text-foreground-icon-secondary" aria-hidden />
-          <span className="min-w-0 truncate">CRM · {chat.name}</span>
+          <span className="min-w-0 truncate">
+            CRM · <span className="wacrm-blur-names">{chat.name}</span>
+          </span>
         </h2>
         <PanelBody key={chat.jid} store={store} chat={chat} />
       </section>

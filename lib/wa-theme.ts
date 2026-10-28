@@ -134,7 +134,8 @@ function paneCardCss(ground: string, card: string): string[] {
     // Hover circles of ⋮ and + overflow their small boxes; don't clip them.
     `[data-wacrm-hdr], [data-wacrm-hdr] div, [data-wacrm-hdr] span { overflow: visible !important; }`,
     `[data-wacrm-hdrtitle] { display: none !important; }`,
-    `[data-wacrm-searchrow] { padding-inline-end: var(--wacrm-search-pe, 96px) !important; }`,
+    // Same 12px breathing room as the sidebar card (p-3) around the search row.
+    `[data-wacrm-searchrow] { padding-block: 12px 8px !important; padding-inline-start: 12px !important; padding-inline-end: var(--wacrm-search-pe, 96px) !important; }`,
     // Behind the round corners: the ground, not WhatsApp's surface color.
     `[data-wacrm-panerow] { background: ${ground} !important; }`,
     `[data-wacrm-pane] { box-sizing: border-box !important; border: 0 solid ${ground} !important; overflow: hidden !important;${card ? ` background-color: ${card} !important;` : ''} }`,

@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import type { BridgeClient } from '@/lib/bridge/client';
-import type { ChatSummary } from '@/lib/bridge/protocol';
+import type { ChatAction, ChatSummary } from '@/lib/bridge/protocol';
 import type { Repo } from '@/lib/repo/repo';
 import type { ChatRecord, Note, Stage } from '@/lib/repo/schema';
 import { setStatus as setDomStatus } from '@/lib/wa-dom';
@@ -146,6 +146,13 @@ export function createCrmStore(bridge: BridgeClient, repo: Repo) {
       if (jid in state.pics || picQueue.includes(jid) || picLoading.has(jid)) return;
       picQueue.push(jid);
       pumpPics();
+    },
+
+    listLists: () => bridge.listLists(),
+    /** One of WhatsApp's own chat-menu actions; the list refreshes right after. */
+    async chatAction(jid: string, action: ChatAction) {
+      await bridge.chatAction(jid, action);
+      await loadChats();
     },
 
     async openChat(jid: string) {

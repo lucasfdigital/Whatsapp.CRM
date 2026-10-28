@@ -6,6 +6,7 @@ import {
   lastSpokeMe,
   previewOf,
   type BridgeRequest,
+  type ChatAction,
   type ChatSummary,
   type PageMessage,
 } from '@/lib/bridge/protocol';
@@ -14,8 +15,9 @@ import {
  * Runs in WhatsApp's MAIN world, right after wa-js (`window.WPP`). The background
  * registers both only while the extension is switched on (lib/main-world.ts), so
  * "Desligado" leaves WhatsApp without any injected code after a reload.
- * Read-only on purpose: it lists chats, reports message direction/time and
- * opens a chat. It never sends messages and never sees extension storage.
+ * It lists chats, reports message direction/time, opens a chat and runs
+ * WhatsApp's own per-chat menu actions when the user picks one in our menu.
+ * It never sends messages and never sees extension storage.
  */
 export default defineUnlistedScript(() => {
   const w = window as unknown as { __wacrmBridge?: boolean };
@@ -56,6 +58,11 @@ export default defineUnlistedScript(() => {
       lastAt: typeof chat.t === 'number' ? chat.t * 1000 : null,
       unread: Math.max(0, Number(chat.unreadCount) || 0),
       archived: Boolean(chat.archive),
+      pinned: Boolean(chat.pin),
+      // -1 = muted forever; otherwise an expiration in seconds.
+      muted:
+        Number(chat.muteExpiration ?? chat.mute?.expiration ?? 0) === -1 ||
+        Number(chat.muteExpiration ?? chat.mute?.expiration ?? 0) * 1000 > Date.now(),
       lastFromMe: lastSpokeMe(msgs.slice(-20)),
       preview: previewOf(toMessageLike(lastRealMessage(msgs.slice(-20))), kindFromJid(jid) === 'group'),
       markedUnread: Boolean(chat.markedUnread) || Number(chat.unreadCount) < 0,
@@ -92,6 +99,40 @@ export default defineUnlistedScript(() => {
     },
     async openChat(req: { jid: string }) {
       return WPP().chat.openChatBottom(req.jid);
+    },
+    async listLists() {
+      const lists: Array<{ id: string; name: string }> = WPP().lists?.list?.() ?? [];
+      return lists.map(({ id, name }) => ({ id: String(id), name: String(name ?? '') }));
+    },
+    // Only what WhatsApp's own chat menu offers, run on the user's click.
+    async chatAction(req: { jid: string; action: ChatAction }) {
+      const { chat, group, lists } = WPP();
+      const { jid, action } = req;
+      switch (action.type) {
+        case 'archive':
+          return void (await chat.archive(jid, action.on));
+        case 'mute':
+          if (action.seconds === null) return void (await chat.unmute(jid));
+          if (action.seconds === 'always') {
+            // WhatsApp's own "Sempre" is expiration -1, which wa-js' mute() rejects as negative.
+            const model = await chat.find(jid);
+            return void (await model.mute.mute({ expiration: -1, isAutoMuted: false, sendDevice: true }));
+          }
+          return void (await chat.mute(jid, { duration: action.seconds }));
+        case 'pin':
+          return void (await chat.pin(jid, action.on));
+        case 'unread':
+          return void (await (action.on ? chat.markIsUnread(jid) : chat.markIsRead(jid)));
+        case 'addToList':
+          return void (await lists.addChats(action.listId, [jid]));
+        case 'clear':
+          return void (await chat.clear(jid, true));
+        case 'delete':
+          return void (await chat.delete(jid));
+        case 'leave':
+          if (kindFromJid(jid) !== 'group') throw new Error('Não é um grupo');
+          return void (await group.leave(jid));
+      }
     },
   };
 

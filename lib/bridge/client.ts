@@ -2,11 +2,13 @@ import {
   FROM_PAGE,
   TO_PAGE,
   type BridgeRequest,
+  type ChatAction,
+  type ChatListInfo,
   type ChatSummary,
   type MessageSeen,
   type PageMessage,
 } from './protocol';
-import { chatSummarySchema, pageMessageSchema, profilePicSchema } from './schemas';
+import { chatListsSchema, chatSummarySchema, pageMessageSchema, profilePicSchema } from './schemas';
 
 type Pending = { resolve: (v: unknown) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> };
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
@@ -115,6 +117,13 @@ export function createBridgeClient(target: EventTarget = window, timeoutMs = 15_
     },
     async openChat(jid: string): Promise<void> {
       await request({ method: 'openChat', jid });
+    },
+    /** WhatsApp's chat lists (Favoritos and the user's own). */
+    async listLists(): Promise<ChatListInfo[]> {
+      return chatListsSchema.parse(await request({ method: 'listLists' }));
+    },
+    async chatAction(jid: string, action: ChatAction): Promise<void> {
+      await request({ method: 'chatAction', jid, action });
     },
     /** Profile photo URL (fetched by WhatsApp if needed); null when there is none. */
     async getProfilePic(jid: string): Promise<string | null> {

@@ -1,10 +1,12 @@
 import './style.css';
 import type { ReactNode } from 'react';
 import ReactDOM from 'react-dom/client';
+import { enableShadowDOM } from 'react-stately/private/flags/flags';
 import type { ContentScriptContext } from 'wxt/utils/content-script-context';
 import { createBridgeClient } from '@/lib/bridge/client';
 import { chromeLocalKV } from '@/lib/repo/kv';
 import { createRepo } from '@/lib/repo/repo';
+import { normalizePrivacy, privacyItem, startPrivacy, type PrivacySettings } from '@/lib/privacy';
 import { enabledItem } from '@/lib/settings';
 import {
   SELECTORS,
@@ -30,6 +32,7 @@ import { HeaderButton, InfoCrm } from './ui/ContactPanel';
 import { Pipeline } from './ui/Pipeline';
 import { Sidebar } from './ui/Sidebar';
 import { TabBar } from './ui/TabBar';
+import { OVERLAY_Z } from './ui/shared';
 import { ThemeBridge } from './ui/ThemeBridge';
 
 const RAIL_MARK = 'data-wacrm-railbox';
@@ -40,6 +43,9 @@ export default defineContentScript({
   matches: ['https://web.whatsapp.com/*'],
   cssInjectionMode: 'ui',
   async main(ctx) {
+    // Our UI lives in shadow roots: React Aria must follow composed event paths, or presses
+    // (menu triggers, switches) end "outside" the element and are dropped.
+    enableShadowDOM();
     // wa-js + wa-bridge run in the MAIN world, registered by the background while enabled.
     const bridge = createBridgeClient();
     const repo = createRepo(chromeLocalKV());
@@ -47,7 +53,15 @@ export default defineContentScript({
     const store = createCrmStore(bridge, repo);
 
     // Keep time/direction of the last message for tracked chats (needed for "sem resposta"); only while on.
+    let on = false;
     let offMessage: (() => void) | undefined;
+    // Privacy blur: re-applied whenever the settings change, only while on.
+    let stopPrivacy: (() => void) | undefined;
+    const applyPrivacy = (value: PrivacySettings | null) => {
+      stopPrivacy?.();
+      stopPrivacy = on ? startPrivacy(normalizePrivacy(value), OVERLAY_Z + 10) : undefined;
+    };
+    const unwatchPrivacy = privacyItem.watch(applyPrivacy);
 
     const surfaces = await Promise.all([
       // BoardUI dark/blue theme applied to WhatsApp's own UI.
@@ -58,7 +72,13 @@ export default defineContentScript({
         setStatus('wacrm', 'montado');
       }),
       // BoardUI sidebar: fixed layer over the native rail (it waits for markRail()).
-      surface(ctx, 'wacrm-sidebar', { anchor: 'body', append: 'last' }, <Sidebar store={store} />),
+      // Keys (Space on a privacy switch) must not reach WhatsApp's shortcuts.
+      surface(
+        ctx,
+        'wacrm-sidebar',
+        { anchor: 'body', append: 'last', isolate: ['keydown', 'keyup', 'keypress'] },
+        <Sidebar store={store} />,
+      ),
       // "CRM" toggle in the open conversation's header.
       // Clicks must not reach WhatsApp's header (it opens "Dados do contato").
       surface(
@@ -107,7 +127,6 @@ export default defineContentScript({
     };
     let railTimer: number | undefined;
 
-    let on = false;
     const apply = (enabled: boolean) => {
       if (enabled && !on) {
         on = true;
@@ -116,6 +135,7 @@ export default defineContentScript({
         offMessage = bridge.on('message', ({ jid, at, fromMe }) => {
           repo.recordMessage(jid, at, fromMe).catch((err) => console.warn('[WhatsApp CRM]', err));
         });
+        privacyItem.getValue().then(applyPrivacy);
         tick();
         railTimer = window.setInterval(tick, 1000);
         surfaces.forEach((ui) => ui.autoMount());
@@ -124,6 +144,8 @@ export default defineContentScript({
         store.stop();
         offMessage?.();
         offMessage = undefined;
+        stopPrivacy?.();
+        stopPrivacy = undefined;
         window.clearInterval(railTimer);
         surfaces.forEach((ui) => ui.remove());
         setAppShift(0);
@@ -147,6 +169,8 @@ export default defineContentScript({
       store.stop();
       offMessage?.();
       bridge.dispose();
+      unwatchPrivacy();
+      stopPrivacy?.();
       window.clearInterval(railTimer);
       setAppShift(0);
       setRailVisible(null, true);
