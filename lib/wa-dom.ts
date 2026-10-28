@@ -304,10 +304,10 @@ function layoutListHeader(left: HTMLElement): void {
   };
   // ⋮ centered on the pill; `top` is measured from inside the card's border.
   set('--wacrm-hdr-top', (pill.top + pill.bottom) / 2 - l.top - left.clientTop - ((m.top + m.bottom) / 2 - h.top));
-  // Search pill … + span exactly the width of our tab bar (8px in from the card otherwise).
+  // Search pill … + span exactly the width of our tab bar (12px in from the card otherwise, as the sidebar card).
   const tabs = document.querySelector('wacrm-tabs')?.shadowRoot?.querySelector('[role="tablist"]')?.getBoundingClientRect();
-  const startX = tabs?.width ? tabs.left : row.left + 8;
-  const endX = tabs?.width ? tabs.right : row.right - 8;
+  const startX = tabs?.width ? tabs.left : row.left + 12;
+  const endX = tabs?.width ? tabs.right : row.right - 12;
   // A margin, not padding: WhatsApp's own inset inside the row may need a negative shift.
   set('--wacrm-search-ms', px('--wacrm-search-ms', 0) + (startX - pill.left));
   set('--wacrm-hdr-end', px('--wacrm-hdr-end', 0) + (last.right - endX));
