@@ -128,14 +128,15 @@ export function TabBar({ store }: { store: CrmStore }) {
   return (
     <Surface className="flex flex-col">
       <Tabs selectedKey={tab} onSelectionChange={(key) => activeTabItem.setValue(toTabId(key))} className="px-2 pb-1">
-        {/* Compact padding, no icons, and counts only on Aguardando and the current tab: four tabs must fit the narrow list. */}
+        {/* Small size, compact padding and no icons: four tabs with 3-digit counts must fit the narrow list. */}
         <TabList aria-label="Filtros do CRM" className="overflow-x-auto [scrollbar-width:none]">
           {TABS.map((item) => (
             <Tab
               key={item.id}
               id={item.id}
-              count={item.id !== 'waiting' && item.id !== tab ? undefined : status === 'ready' ? counts[item.id] : '…'}
-              className="flex-1 justify-center gap-1 px-1"
+              size="sm"
+              count={status === 'ready' ? counts[item.id] : '…'}
+              className="flex-1 justify-center gap-1 px-0.5"
             >
               {item.label}
             </Tab>

@@ -127,10 +127,12 @@ export interface TabProps extends Omit<AriaTabProps, "children"> {
   icon?: IconComponent;
   /** Optional trailing count badge. */
   count?: ReactNode;
+  /** `sm`: Body 2 label and Caption 2 count, for narrow tab bars. */
+  size?: "md" | "sm";
   ref?: Ref<HTMLDivElement>;
 }
 
-export function Tab({ className, children, icon: Icon, count, ref, ...props }: TabProps) {
+export function Tab({ className, children, icon: Icon, count, size = "md", ref, ...props }: TabProps) {
   return (
     <AriaTab
       ref={ref}
@@ -150,9 +152,13 @@ export function Tab({ className, children, icon: Icon, count, ref, ...props }: T
           <span
             className={cx(
               "inline-flex items-center gap-1.5",
-              isSelected
-                ? "text-body-medium text-accent-600"
-                : "text-body-regular text-text-primary",
+              size === "sm"
+                ? isSelected
+                  ? "text-body-2-medium text-accent-600"
+                  : "text-body-2-regular text-text-primary"
+                : isSelected
+                  ? "text-body-medium text-accent-600"
+                  : "text-body-regular text-text-primary",
             )}
           >
             {Icon && <Icon className="size-4 shrink-0" aria-hidden />}
@@ -161,7 +167,8 @@ export function Tab({ className, children, icon: Icon, count, ref, ...props }: T
           {count != null && (
             <span
               className={cx(
-                "inline-flex items-center justify-center rounded-sm px-1 py-px text-caption-1-medium whitespace-nowrap",
+                "inline-flex items-center justify-center rounded-sm py-px whitespace-nowrap",
+                size === "sm" ? "px-0.5 text-caption-2-medium" : "px-1 text-caption-1-medium",
                 isSelected
                   ? "bg-tab-count-selected-background text-accent-600"
                   : "bg-black/10 text-text-primary opacity-50",
