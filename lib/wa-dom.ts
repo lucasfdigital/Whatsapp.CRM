@@ -304,9 +304,13 @@ function layoutListHeader(left: HTMLElement): void {
   };
   // ⋮ centered on the pill; `top` is measured from inside the card's border.
   set('--wacrm-hdr-top', (pill.top + pill.bottom) / 2 - l.top - left.clientTop - ((m.top + m.bottom) / 2 - h.top));
-  // + ends as far from the card's edge as the pill starts from the other one.
-  const inset = pill.left - row.left;
-  set('--wacrm-hdr-end', px('--wacrm-hdr-end', 0) + (last.right - (row.right - inset)));
+  // Search pill … + span exactly the width of our tab bar (8px in from the card otherwise).
+  const tabs = document.querySelector('wacrm-tabs')?.shadowRoot?.querySelector('[role="tablist"]')?.getBoundingClientRect();
+  const startX = tabs?.width ? tabs.left : row.left + 8;
+  const endX = tabs?.width ? tabs.right : row.right - 8;
+  // A margin, not padding: WhatsApp's own inset inside the row may need a negative shift.
+  set('--wacrm-search-ms', px('--wacrm-search-ms', 0) + (startX - pill.left));
+  set('--wacrm-hdr-end', px('--wacrm-hdr-end', 0) + (last.right - endX));
   // The pill stops 8px before ⋮.
   set('--wacrm-search-pe', parseFloat(getComputedStyle(searchRow).paddingInlineEnd) + (pill.right - (m.left - 8)));
 }
@@ -343,7 +347,8 @@ export function clearPanes(): void {
     document.querySelectorAll(`[${attr}]`).forEach((el) => el.removeAttribute(attr));
   }
   document.querySelectorAll<HTMLElement>('[style*="--wacrm-"]').forEach((el) => {
-    for (const name of ['--wacrm-hdr-top', '--wacrm-hdr-end', '--wacrm-search-pe']) el.style.removeProperty(name);
+    for (const name of ['--wacrm-hdr-top', '--wacrm-hdr-end', '--wacrm-search-pe', '--wacrm-search-ms'])
+      el.style.removeProperty(name);
   });
 }
 
