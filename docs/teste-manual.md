@@ -45,6 +45,7 @@ Use uma conversa de teste para as ações do menu ⋮. Teste primeiro as que dá
 - [ ] Na conversa, o menu de anexo, o painel de emojis e o botão "rolar até o fim" ficam onde sempre ficaram; a linha de 1px do card não passa por cima de menus que encostam na borda
 - [ ] Cores do WhatsApp em tons BoardUI (fundo grafite, destaques azuis), bolhas arredondadas, fonte Inter
 - [ ] Nenhuma barra de rolagem visível
+- [ ] Dicas ao passar o mouse (⋮ "Mais opções", "Nova ligação") escuras, com linha de 1px e cantos de 8px
 - [ ] Balões de aviso do WhatsApp (ex.: "Adicionado(a) à sua lista de favoritos") aparecem escuros, com linha de 1px, à direita da sidebar e não por baixo dela
 
 ## CRM

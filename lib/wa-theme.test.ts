@@ -40,6 +40,16 @@ describe('buildThemeCss', () => {
     expect(css).toContain('[data-wacrm-pane]::after');
     expect(css).toContain('border: 1px solid val(border-button-white)');
   });
+
+  it('gives WhatsApp tooltips the BoardUI tooltip look, only inside tooltips', () => {
+    const css = buildThemeCss((token) => `val(${token})`);
+    expect(css).toContain(
+      '[role="tooltip"], [role="tooltip"] * { --WDS-surface-inverse: val(background-primary-default) !important; --WDS-content-inverse: val(text-primary) !important; }',
+    );
+    expect(css).toContain('[role="tooltip"] { border-radius: 8px !important; border: 1px solid val(border-button-default) !important; }');
+    // Inverse colors elsewhere stay WhatsApp's.
+    expect(css).not.toMatch(/:root, :root \* \{[^}]*--WDS-surface-inverse/);
+  });
 });
 
 describe('buildIconCss', () => {

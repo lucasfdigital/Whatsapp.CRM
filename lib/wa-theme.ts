@@ -103,11 +103,28 @@ export function buildThemeCss(
     // Toasts: 1px line and 12px corners like our menus; they start past our sidebar (its width is set on <html> by the sidebar).
     `:root, :root * { --toast-border-width: 1px !important; --toast-border-style: solid !important; --toast-corner-radius: 12px !important; }`,
     `#wds-toast-container { inset-inline-start: calc(var(--wacrm-sidebar-w, 0px) + 16px) !important; }`,
+    ...tooltipCss(read),
     ...(ground
       ? paneCardCss(ground, read('background-secondary-default').trim(), read('border-button-white').trim())
       : []),
     ...chatCss(read, native),
   ].join('\n');
+}
+
+/**
+ * WhatsApp's hover hints ("Mais opções", "Nova ligação") paint with its inverse colors (light
+ * bubble). Only inside tooltips, those take BoardUI's tooltip look: primary surface, 1px line,
+ * 8px corners. Elsewhere the inverse colors stay WhatsApp's.
+ */
+function tooltipCss(read: (token: string) => string): string[] {
+  const surface = read('background-primary-default').trim();
+  const text = read('text-primary').trim();
+  const line = read('border-button-default').trim();
+  if (!surface || !text) return [];
+  return [
+    `[role="tooltip"], [role="tooltip"] * { --WDS-surface-inverse: ${surface} !important; --WDS-content-inverse: ${text} !important; }`,
+    `[role="tooltip"] { border-radius: 8px !important;${line ? ` border: 1px solid ${line} !important;` : ''} }`,
+  ];
 }
 
 /**
