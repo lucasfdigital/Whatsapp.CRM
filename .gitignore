@@ -12,3 +12,5 @@ tasks/
 .claude/
 .cursor/
 boardui-assets/
+probe-views.js
+probe-nav.js

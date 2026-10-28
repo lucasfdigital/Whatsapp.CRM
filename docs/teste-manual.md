@@ -17,6 +17,12 @@ Use uma conversa de teste para as ações do menu ⋮. Teste primeiro as que dá
 - [ ] ☆ vira ★ e a conversa aparece em **Clientes**; recarregar → continua lá
 - [ ] Digitar na busca mostra os resultados do próprio WhatsApp; apagar a busca volta às abas
 
+## Outras telas da lista
+- [ ] **Ligações**, **Arquivadas**, **Status**, **Canais**, **Comunidades**, **Configurações** e **Perfil**: lista e detalhes em dois cards com o mesmo espaço, cantos e linha de 1px de Conversas; sem abas do CRM e nada aparecendo por trás, inclusive com os detalhes de uma ligação abertos
+- [ ] Digitar na busca dessas telas não muda as abas do CRM
+- [ ] Voltar para **Conversas**: em menos de 1s as abas, a busca, ⋮ e + voltam alinhados como antes
+- [ ] Abrir uma foto ou vídeo numa conversa: o visualizador ocupa a tela inteira, sem card por cima
+
 ## Menu ⋮ do card
 - [ ] ⋮ aparece ao lado do horário; clicar nele não abre a conversa
 - [ ] Arquivar, Silenciar (8 horas, 1 semana, Sempre), Fixar, Marcar como lida/não lida funcionam e o card atualiza
@@ -39,6 +45,7 @@ Use uma conversa de teste para as ações do menu ⋮. Teste primeiro as que dá
 - [ ] Na conversa, o menu de anexo, o painel de emojis e o botão "rolar até o fim" ficam onde sempre ficaram; a linha de 1px do card não passa por cima de menus que encostam na borda
 - [ ] Cores do WhatsApp em tons BoardUI (fundo grafite, destaques azuis), bolhas arredondadas, fonte Inter
 - [ ] Nenhuma barra de rolagem visível
+- [ ] Balões de aviso do WhatsApp (ex.: "Adicionado(a) à sua lista de favoritos") aparecem escuros, com linha de 1px, à direita da sidebar e não por baixo dela
 
 ## CRM
 - [ ] **Pipeline** (sidebar) abre o Kanban com as 5 etapas cabendo na tela; arrastar card entre etapas e dentro da coluna; clicar abre a conversa; Esc fecha

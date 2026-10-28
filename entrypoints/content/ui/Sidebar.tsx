@@ -44,6 +44,7 @@ import {
   findNewChatButton,
   findRailColumn,
   hideEdgeLines,
+  isChatListShown,
   readRailItems,
   runMenuAction,
   setAppShift,
@@ -104,7 +105,7 @@ const NATIVE_ICONS: Array<[RegExp, RemixiconComponentType]> = [
 
 /** ⋮ menu entries not shown in the sidebar (still listed in MENU_ACTIONS: they help recognize the menu). */
 const SIDEBAR_HIDDEN =
-  /^(mensagens favoritas|starred messages|listas|lists|marcar todas como lidas|mark all as read|selecionar conversas|select chats)$/i;
+  /^(mensagens favoritas|starred messages|listas|lists|marcar todas como lidas|mark all as read|selecionar conversas|select chats|novo grupo|new group|nova conversa|new chat)$/i;
 /**
  * Entries of WhatsApp's ⋮ menu (Business, pt-BR). Each one runs the native
  * entry, so nothing is lost; ones missing from the account's menu leave the
@@ -154,7 +155,9 @@ function SidebarShell({ store, railBox }: { store: CrmStore; railBox: HTMLElemen
   const shellRef = useRef<HTMLDivElement>(null);
   const [diagnostics, setDiagnostics] = useState<string[]>([]);
   const [hasArchived, setHasArchived] = useState(false);
-  const [hasNewChat, setHasNewChat] = useState(false);
+  /** Arquivadas is not a rail button: remember it was opened until the chat list shows again. */
+  const [archivedOpen, setArchivedOpen] = useState(false);
+  const archivedAt = useRef(0);
   const [hasMenu, setHasMenu] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [moreBelow, setMoreBelow] = useState(false);
@@ -192,7 +195,11 @@ function SidebarShell({ store, railBox }: { store: CrmStore; railBox: HTMLElemen
     // Native rail stays in place (keeps WhatsApp's layout) but invisible; we paint above WhatsApp's layer.
     setRailVisible(column, false);
     setZIndex(zIndexAbove(column, SIDEBAR_Z));
-    const update = () => setAppShift(Math.max(0, shell.offsetWidth - column.getBoundingClientRect().width));
+    const update = () => {
+      setAppShift(Math.max(0, shell.offsetWidth - column.getBoundingClientRect().width));
+      // WhatsApp's toasts are fixed to the viewport's start: the theme moves them past us.
+      document.documentElement.style.setProperty('--wacrm-sidebar-w', `${shell.offsetWidth}px`);
+    };
     update();
     const observer = new ResizeObserver(update);
     observer.observe(shell);
@@ -209,13 +216,15 @@ function SidebarShell({ store, railBox }: { store: CrmStore; railBox: HTMLElemen
       if (!findNewChatButton()) next.push('Botão Nova conversa não encontrado');
       setDiagnostics((prev) => (prev.join() === next.join() ? prev : next));
       setHasArchived(!!findArchivedEntry());
-      setHasNewChat(!!findNewChatButton());
+      // Give WhatsApp a moment to open it before the list counts as "back".
+      if (Date.now() - archivedAt.current > 1500 && isChatListShown()) setArchivedOpen(false);
       setHasMenu(!!findMenuButton());
     }, 2000);
     return () => {
       observer.disconnect();
       window.clearInterval(probe);
       setAppShift(0);
+      document.documentElement.style.removeProperty('--wacrm-sidebar-w');
       showEdgeLines();
       setRailVisible(null, true);
     };
@@ -238,10 +247,11 @@ function SidebarShell({ store, railBox }: { store: CrmStore; railBox: HTMLElemen
   const top = native.filter((i) => !i.bottom);
   const bottom = native.filter((i) => i.bottom);
   const nativeSelected = native.find((i) => i.selected)?.label ?? lastNative ?? top[0]?.label;
-  const selected = view === 'pipeline' ? 'crm:pipeline' : nativeSelected;
+  const selected = view === 'pipeline' ? 'crm:pipeline' : archivedOpen ? 'Arquivadas' : nativeSelected;
 
   const openNative = (label: string) => {
     store.setView('none');
+    setArchivedOpen(false);
     setLastNative(label);
     clickRailItem(railBox, label);
   };
@@ -265,6 +275,7 @@ function SidebarShell({ store, railBox }: { store: CrmStore; railBox: HTMLElemen
           label,
           run: () => {
             store.setView('none');
+            setArchivedOpen(false);
             // Selecting works on WhatsApp's own list, not ours.
             if (/selecionar conversas/i.test(label)) store.setNativeList(true);
             void runMenuAction(label, MENU_ACTIONS);
@@ -275,10 +286,22 @@ function SidebarShell({ store, railBox }: { store: CrmStore; railBox: HTMLElemen
     ...top.map(fromRail),
     // Arquivadas lives at the top of the native list, which our list replaces.
     ...(hasArchived && !has(/arquivad|archived/i)
-      ? [{ label: 'Arquivadas', run: () => (store.setView('none'), findArchivedEntry()?.click()) }]
-      : []),
-    ...(hasNewChat
-      ? [{ label: 'Nova conversa', run: () => (store.setView('none'), findNewChatButton()?.click()) }]
+      ? [
+          {
+            label: 'Arquivadas',
+            run: () => {
+              store.setView('none');
+              // WhatsApp only opens archived chats from the Conversas tab: from Ligações, Status… the
+              // other tab's panel would stay on the right and cover the chat.
+              const chats = native.find((i) => /^(conversas|chats)$/i.test(i.label));
+              if (chats && !chats.selected) clickRailItem(railBox, chats.label);
+              setLastNative(chats?.label ?? null);
+              setArchivedOpen(true);
+              archivedAt.current = Date.now();
+              window.setTimeout(() => findArchivedEntry()?.click(), chats && !chats.selected ? 300 : 0);
+            },
+          },
+        ]
       : []),
     ...menuEntries,
   ];

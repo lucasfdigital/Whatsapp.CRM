@@ -16,14 +16,49 @@ export const SELECTORS = {
 
 /** Left edge for full-screen CRM views: just right of the native rail. */
 export function workspaceLeft(): number {
-  return document.querySelector(SELECTORS.sidePanel)?.getBoundingClientRect().left ?? 0;
+  return chatSide()?.getBoundingClientRect().left ?? 0;
 }
+
+/**
+ * The chat list's column. Ligações, Arquivadas, Status… open another #side
+ * (with its own #pane-side) over it and keep this one mounted underneath:
+ * ours is the one holding our tab bar.
+ */
+export function chatSide(): HTMLElement | null {
+  return (
+    document.querySelector('wacrm-tabs')?.closest<HTMLElement>(SELECTORS.sidePanel) ??
+    document.querySelector<HTMLElement>(SELECTORS.sidePanel)
+  );
+}
+
+/** `el` is what the user sees down its middle (menus, dialogs and our own layers over it don't count). */
+function onTop(el: Element): boolean {
+  const r = el.getBoundingClientRect();
+  if (r.width < 40 || r.height < 40) return false;
+  const x = r.left + r.width / 2;
+  return [0.25, 0.5, 0.75].some((f) => {
+    const hit = document.elementFromPoint(x, r.top + r.height * f);
+    return (
+      !!hit &&
+      (el.contains(hit) ||
+        hit.tagName.startsWith('WACRM-') ||
+        !!hit.closest('[role="dialog"], [role="menu"], [role="application"], [data-animate-modal-backdrop]'))
+    );
+  });
+}
+
+/** False while WhatsApp shows another left panel (Ligações, Arquivadas, Status…) over the chat list. */
+export function isChatListShown(): boolean {
+  const side = chatSide();
+  return !!side && onTop(side);
+}
+
 
 const HIDDEN_ATTR = 'data-wacrm-hidden';
 
 /** Hides/shows WhatsApp's own chat list without touching its React tree. */
 export function setNativeListHidden(hidden: boolean): void {
-  const list = document.querySelector<HTMLElement>(SELECTORS.chatList);
+  const list = chatSide()?.querySelector<HTMLElement>(SELECTORS.chatList);
   if (!list) return;
   if (hidden) {
     list.setAttribute(HIDDEN_ATTR, '');
@@ -42,8 +77,8 @@ const FILTERS_ATTR = 'data-wacrm-filters';
  * holds it but not the search box, the chat list or our tab bar.
  */
 export function hideNativeFilters(): void {
-  const side = document.querySelector<HTMLElement>(SELECTORS.sidePanel);
-  if (!side || side.querySelector(`[${FILTERS_ATTR}]`)) return;
+  const side = chatSide();
+  if (!side || side.querySelector(`[${FILTERS_ATTR}]`) || !isChatListShown()) return;
   // Runs every second: skip the (huge) chat list instead of scanning it.
   const walker = document.createTreeWalker(side, NodeFilter.SHOW_ELEMENT, {
     acceptNode: (el) =>
@@ -85,8 +120,9 @@ export function readSearchBox(): string | null {
 /** Text currently typed in WhatsApp's search box (empty when none). */
 export function readSearchText(target: EventTarget | null): string | null {
   if (!(target instanceof HTMLElement)) return null;
+  // Ligações, Arquivadas… have their own search box: not ours.
   const side = target.closest(SELECTORS.sidePanel);
-  if (!side || target.closest(SELECTORS.chatList)) return null;
+  if (!side || side !== chatSide() || target.closest(SELECTORS.chatList)) return null;
   if (target instanceof HTMLInputElement) return target.value;
   if (target.isContentEditable) return target.textContent ?? '';
   return null;
@@ -199,6 +235,10 @@ export const PANE_ROW_ATTR = 'data-wacrm-panerow';
  */
 export const LAYER_SPACER_ATTR = 'data-wacrm-spacer';
 export const LAYER_PANEL_ATTR = 'data-wacrm-layerpanel';
+/** On the layer while it shows a screen of its own (Ligações, Arquivadas…): spacer and panel drawn as the cards. */
+export const LAYER_CARD_ATTR = 'data-wacrm-layercard';
+/** On the layer's panel while it has content of its own (Ligações details, Status…). */
+export const LAYER_FULL_ATTR = 'data-wacrm-layerfull';
 /** List header ("WhatsApp ⋮ +"): title hidden, buttons laid over the search row's end. */
 const HDR_ATTR = 'data-wacrm-hdr';
 const HDR_TITLE_ATTR = 'data-wacrm-hdrtitle';
@@ -223,8 +263,20 @@ function panesBeside(node: Element): Element[] {
  * our own CSS changes the left pane's width.
  */
 export function markPanes(): void {
-  const side = document.querySelector<HTMLElement>(SELECTORS.sidePanel);
-  // Status / Configurações can replace #side for a while: keep the last marks.
+  // Ligações, Arquivadas, Status… open in the layer over the panes (list + details):
+  // that layer is laid out like the panes underneath, so it gets the same cards.
+  const away = !isChatListShown();
+  document.querySelectorAll(`[${LAYER_SPACER_ATTR}]`).forEach((spacer) => {
+    const layer = spacer.parentElement;
+    // Only when the layer itself shows something there (not the media viewer or a dialog over a chat).
+    const on = away && onTop(spacer);
+    if (layer && layer.hasAttribute(LAYER_CARD_ATTR) !== on) layer.toggleAttribute(LAYER_CARD_ATTR, on);
+    // Arquivadas leaves the panel empty: the conversation opens in the pane below, which must show through.
+    const panel = layer?.querySelector(`:scope > [${LAYER_PANEL_ATTR}]`);
+    const full = on && !!panel && panel.getElementsByTagName('*').length > 2;
+    if (panel && panel.hasAttribute(LAYER_FULL_ATTR) !== full) panel.toggleAttribute(LAYER_FULL_ATTR, full);
+  });
+  const side = chatSide();
   if (!side) return;
   const app = document.getElementById('app');
   let left: HTMLElement = side;
@@ -267,7 +319,7 @@ export function markPanes(): void {
 function layoutListHeader(left: HTMLElement): void {
   const menu = findMenuButton();
   const search = findSearchBox();
-  const list = document.querySelector(SELECTORS.chatList);
+  const list = chatSide()?.querySelector(SELECTORS.chatList);
   if (!menu || !search || !list || !left.contains(menu) || !left.contains(search)) return;
   // Header: the menu's ancestor right below the branch that holds the search box.
   let hdr: HTMLElement = menu;
@@ -283,6 +335,7 @@ function layoutListHeader(left: HTMLElement): void {
     document.querySelectorAll(`[${HDR_ATTR}]`).forEach((el) => el.removeAttribute(HDR_ATTR));
     hdr.setAttribute(HDR_ATTR, '');
   }
+  document.querySelectorAll(`[${HDR_TITLE_ATTR}]`).forEach((el) => hdr.contains(el) || el.removeAttribute(HDR_TITLE_ATTR));
   if (!searchRow.hasAttribute(SEARCH_ROW_ATTR)) {
     document.querySelectorAll(`[${SEARCH_ROW_ATTR}]`).forEach((el) => el.removeAttribute(SEARCH_ROW_ATTR));
     searchRow.setAttribute(SEARCH_ROW_ATTR, '');
@@ -336,9 +389,8 @@ function layoutListHeader(left: HTMLElement): void {
 
 /** WhatsApp's search box in the list (not inside the chat list). */
 function findSearchBox(): HTMLElement | null {
-  const boxes = document.querySelectorAll<HTMLElement>(
-    `${SELECTORS.sidePanel} [contenteditable="true"], ${SELECTORS.sidePanel} input[type="text"], ${SELECTORS.sidePanel} input:not([type])`,
-  );
+  const boxes =
+    chatSide()?.querySelectorAll<HTMLElement>('[contenteditable="true"], input[type="text"], input:not([type])') ?? [];
   for (const box of boxes) if (!box.closest(SELECTORS.chatList)) return box;
   return null;
 }
@@ -359,6 +411,10 @@ function markLayerSpacers(row: Element, left: Element): void {
 }
 
 export function clearPanes(): void {
+  // Runs every second while another screen is open: nothing to undo most of the time.
+  const marks = [PANE_ATTR, PANE_ROW_ATTR, LAYER_SPACER_ATTR, LAYER_PANEL_ATTR, LAYER_CARD_ATTR, LAYER_FULL_ATTR, HDR_ATTR, HDR_TITLE_ATTR, SEARCH_ROW_ATTR];
+  const vars = '[style*="--wacrm-hdr"], [style*="--wacrm-search"]';
+  if (!document.querySelector(`${marks.map((a) => `[${a}]`).join(', ')}, ${vars}`)) return;
   document.querySelectorAll(`[${PANE_ATTR}]`).forEach((el) => {
     el.removeAttribute(PANE_ATTR);
     el.removeAttribute(PANE_STATIC_ATTR);
@@ -366,10 +422,12 @@ export function clearPanes(): void {
   document.querySelectorAll(`[${PANE_ROW_ATTR}]`).forEach((el) => el.removeAttribute(PANE_ROW_ATTR));
   document.querySelectorAll(`[${LAYER_SPACER_ATTR}]`).forEach((el) => el.removeAttribute(LAYER_SPACER_ATTR));
   document.querySelectorAll(`[${LAYER_PANEL_ATTR}]`).forEach((el) => el.removeAttribute(LAYER_PANEL_ATTR));
+  document.querySelectorAll(`[${LAYER_CARD_ATTR}]`).forEach((el) => el.removeAttribute(LAYER_CARD_ATTR));
+  document.querySelectorAll(`[${LAYER_FULL_ATTR}]`).forEach((el) => el.removeAttribute(LAYER_FULL_ATTR));
   for (const attr of [HDR_ATTR, HDR_TITLE_ATTR, SEARCH_ROW_ATTR]) {
     document.querySelectorAll(`[${attr}]`).forEach((el) => el.removeAttribute(attr));
   }
-  document.querySelectorAll<HTMLElement>('[style*="--wacrm-"]').forEach((el) => {
+  document.querySelectorAll<HTMLElement>(vars).forEach((el) => {
     for (const name of ['--wacrm-hdr-top', '--wacrm-hdr-end', '--wacrm-search-pe', '--wacrm-search-ms'])
       el.style.removeProperty(name);
   });
@@ -398,9 +456,7 @@ export function findIntruders(host: Element, width: number): string[] {
 
 /** WhatsApp's "Arquivadas" entry (top of the chat list), if rendered. */
 export function findArchivedEntry(): HTMLElement | null {
-  const candidates = document.querySelectorAll<HTMLElement>(
-    `${SELECTORS.sidePanel} button, ${SELECTORS.sidePanel} [role="button"], ${SELECTORS.sidePanel} [role="listitem"]`,
-  );
+  const candidates = chatSide()?.querySelectorAll<HTMLElement>('button, [role="button"], [role="listitem"]') ?? [];
   for (const el of candidates) {
     const text = (el.getAttribute('aria-label') ?? el.textContent ?? '').trim();
     if (/^(arquivadas|archived)\b/i.test(text)) return el;
@@ -429,11 +485,20 @@ export function describeShiftFailure(rail: Element, sidebarWidth: number): strin
  * "Mais opções") and outside the chat list.
  */
 function findHeaderButton(match: RegExp): HTMLElement | null {
-  const pane = document.querySelector(`[${PANE_ATTR}="left"]`) ?? document.querySelector(SELECTORS.sidePanel);
-  for (const scope of [pane, document.getElementById('app')]) {
+  const side = chatSide();
+  // While Ligações, Arquivadas… are open, the left pane is theirs: skip their columns.
+  const others = [...document.querySelectorAll(SELECTORS.sidePanel)].filter((s) => s !== side);
+  const foreign = (el: Element) =>
+    others.some((other) => {
+      for (let a: Element | null = other; a && !(side && a.contains(side)); a = a.parentElement)
+        if (a.contains(el)) return true;
+      return false;
+    });
+  const pane = document.querySelector(`[${PANE_ATTR}="left"]`);
+  for (const scope of [side && pane?.contains(side) ? pane : null, document.getElementById('app')]) {
     if (!scope) continue;
     for (const el of scope.querySelectorAll<HTMLElement>('button[aria-label], [role="button"][aria-label]')) {
-      if (el.closest(SELECTORS.chatList) || el.closest(SELECTORS.main)) continue;
+      if (el.closest(SELECTORS.chatList) || el.closest(SELECTORS.main) || foreign(el)) continue;
       if (match.test(el.getAttribute('aria-label') ?? '')) return el;
     }
   }

@@ -6,6 +6,12 @@
   --font-mono-source: "JetBrains Mono", ui-monospace, Menlo, monospace;
 }
 
+/* Set by the content script while WhatsApp shows another panel over the chat list (Ligações, Arquivadas…).
+   An attribute, not an inline style: WXT's `:host { all: initial !important }` beats inline styles. */
+:host([data-wacrm-away]) {
+  display: none !important;
+}
+
 
 /* No visible scrollbars in our surfaces either (pipeline, panel); scrolling still works. */
 * {

@@ -27,7 +27,14 @@ describe('buildThemeCss', () => {
     expect(css).toContain('border: 0 solid val(background-full)');
     expect(css).toContain('[data-wacrm-pane="left"]');
     expect(css).toContain('[data-wacrm-pane="right"]');
-    expect(css).toContain('[data-wacrm-pane="right"] { border-width: 8px 8px 8px 4px !important;');
+    expect(css).toContain(
+      '[data-wacrm-pane="right"], [data-wacrm-layercard] > [data-wacrm-layerpanel][data-wacrm-layerfull] { border-width: 8px 8px 8px 4px !important;',
+    );
+    // Ligações, Arquivadas…: the layer's list and details are the same cards.
+    expect(css).toContain(
+      '[data-wacrm-pane="left"], [data-wacrm-layercard] > [data-wacrm-spacer] { border-width: 8px 4px 8px 0 !important;',
+    );
+    expect(css).toContain('[data-wacrm-layercard] > [data-wacrm-spacer]::after');
     expect(css).toContain(`width: ${LIST_WIDTH}px !important`);
     // The sidebar card's 1px line, drawn over WhatsApp's content.
     expect(css).toContain('[data-wacrm-pane]::after');

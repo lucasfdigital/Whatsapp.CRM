@@ -10,7 +10,7 @@ import {
   type BlurKey,
   type PrivacySettings,
 } from '@/lib/privacy';
-import { SELECTORS } from '@/lib/wa-dom';
+import { SELECTORS, chatSide } from '@/lib/wa-dom';
 
 /** Current privacy settings, live from storage. */
 export function usePrivacy(): PrivacySettings {
@@ -27,7 +27,7 @@ const NEEDS_CHAT: readonly BlurKey[] = ['messages', 'media', 'input'];
 /** Options also drawn by our own list: WhatsApp's list only matters while it shows (search, selecting chats). */
 const OURS_TOO: readonly BlurKey[] = ['previews', 'photos', 'names'];
 const nativeListShown = () => {
-  const list = document.querySelector<HTMLElement>(SELECTORS.chatList);
+  const list = chatSide()?.querySelector<HTMLElement>(SELECTORS.chatList);
   return !!list && list.getBoundingClientRect().height > 0 && getComputedStyle(list).display !== 'none';
 };
 

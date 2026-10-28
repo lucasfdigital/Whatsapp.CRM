@@ -33,13 +33,16 @@ export const TOKEN_MAP: Record<string, string[]> = {
     '--WDS-systems-bubble-surface-incoming',
     '--WDS-systems-bubble-surface-system',
     '--WDS-components-badge-muted',
+    // Toasts ("Adicionado(a) à sua lista de favoritos"): a raised card, not WhatsApp's light bubble.
+    '--toast-background',
+    '--toast-background-web',
   ],
   'background-tertiary-hover': ['--WDS-surface-highlight', '--WDS-components-active-list-row', '--WDS-surface-pressed'],
-  'text-primary': ['--WDS-content-default', '--WDS-content-on-accent'],
+  'text-primary': ['--WDS-content-default', '--WDS-content-on-accent', '--toast-text-web'],
   'text-secondary': ['--WDS-content-deemphasized', '--WDS-systems-bubble-content-deemphasized'],
   'text-placeholder': ['--WDS-content-disabled'],
   'separator-border': ['--WDS-lines-divider'],
-  'border-button-default': ['--WDS-lines-outline-default', '--WDS-lines-outline-deemphasized'],
+  'border-button-default': ['--WDS-lines-outline-default', '--WDS-lines-outline-deemphasized', '--toast-border-color'],
   'accent-400': [
     '--WDS-content-action-default',
     '--WDS-content-action-emphasized',
@@ -48,6 +51,7 @@ export const TOKEN_MAP: Record<string, string[]> = {
     '--WDS-systems-status-seen',
     '--text-action',
     '--icon-high-emphasis',
+    '--toast-text-link',
   ],
   'accent-500': [
     '--WDS-accent',
@@ -96,6 +100,9 @@ export function buildThemeCss(
     // No visible scrollbars anywhere in WhatsApp; scrolling still works.
     `html, body, #app, #app * { scrollbar-width: none !important; }`,
     `#app *::-webkit-scrollbar { display: none !important; }`,
+    // Toasts: 1px line and 12px corners like our menus; they start past our sidebar (its width is set on <html> by the sidebar).
+    `:root, :root * { --toast-border-width: 1px !important; --toast-border-style: solid !important; --toast-corner-radius: 12px !important; }`,
+    `#wds-toast-container { inset-inline-start: calc(var(--wacrm-sidebar-w, 0px) + 16px) !important; }`,
     ...(ground
       ? paneCardCss(ground, read('background-secondary-default').trim(), read('border-button-white').trim())
       : []),
@@ -129,6 +136,14 @@ function chatCss(read: (token: string) => string, native: NativeSelectors): stri
 /** Chat list card width (border included). */
 export const LIST_WIDTH = 400;
 
+/** Ligações, Arquivadas…: the layer's spacer (list) and panel (details, when it has any) are cards like the panes below. */
+const LAYER_LEFT = '[data-wacrm-layercard] > [data-wacrm-spacer]';
+const LAYER_RIGHT = '[data-wacrm-layercard] > [data-wacrm-layerpanel][data-wacrm-layerfull]';
+const LEFT = `[data-wacrm-pane="left"], ${LAYER_LEFT}`;
+const RIGHT = `[data-wacrm-pane="right"], ${LAYER_RIGHT}`;
+const ANY = `[data-wacrm-pane], ${LAYER_LEFT}, ${LAYER_RIGHT}`;
+const ANY_AFTER = `[data-wacrm-pane]::after, ${LAYER_LEFT}::after, ${LAYER_RIGHT}::after`;
+
 function paneCardCss(ground: string, card: string, line = ''): string[] {
   return [
     // Layers over the panes keep the list's old width as a spacer: follow our list width.
@@ -143,23 +158,24 @@ function paneCardCss(ground: string, card: string, line = ''): string[] {
     // 12px breathing room above the search row (as in the sidebar card); its sides follow our tab bar (wa-dom).
     `[data-wacrm-searchrow] { padding-block: 12px 8px !important; padding-inline-start: 0 !important; margin-inline-start: var(--wacrm-search-ms, 0px) !important; padding-inline-end: var(--wacrm-search-pe, 96px) !important; }`,
     // Behind the round corners: the ground, not WhatsApp's surface color.
+    // Not on the layer: where it shows nothing (Arquivadas' empty panel) the panes below must show through.
     `[data-wacrm-panerow] { background: ${ground} !important; }`,
-    `[data-wacrm-pane] { box-sizing: border-box !important; border: 0 solid ${ground} !important; overflow: hidden !important;${card ? ` background-color: ${card} !important;` : ''} }`,
+    `${ANY} { box-sizing: border-box !important; border: 0 solid ${ground} !important; overflow: hidden !important;${card ? ` background-color: ${card} !important;` : ''} }`,
     // WhatsApp's list/conversation divider would draw a line just inside the card's edge.
-    `[data-wacrm-pane="left"] > *, [data-wacrm-pane="left"] #side { border-inline-end-width: 0 !important; }`,
-    `[data-wacrm-pane="left"] { border-width: 8px 4px 8px 0 !important; border-radius: 24px 28px 28px 24px / 32px !important; }`,
+    `[data-wacrm-pane="left"] > *, [data-wacrm-pane="left"] #side, ${LAYER_LEFT} > * { border-inline-end-width: 0 !important; }`,
+    `${LEFT} { border-width: 8px 4px 8px 0 !important; border-radius: 24px 28px 28px 24px / 32px !important; }`,
     // Three short tabs fit: the chat list doesn't need WhatsApp's wide column.
     // Width only (no flex-basis): in a vertical flex column flex-basis would set the height.
     `[data-wacrm-pane="left"] { flex: none !important; width: ${LIST_WIDTH}px !important; max-width: ${LIST_WIDTH}px !important; min-width: 0 !important; }`,
-    `[data-wacrm-pane="right"] { border-width: 8px 8px 8px 4px !important; border-radius: 28px 32px 32px 28px / 32px !important; }`,
+    `${RIGHT} { border-width: 8px 8px 8px 4px !important; border-radius: 28px 32px 32px 28px / 32px !important; }`,
     // Same 1px line as the sidebar card (border-button-white, 24px inner radius). An overlay,
     // since WhatsApp's own opaque children would cover an inset border or shadow.
     ...(line
       ? [
           // Positioned only where WhatsApp left the pane static (wa-dom marks it); never override its own.
           `[data-wacrm-pane][data-wacrm-static] { position: relative !important; }`,
-          `[data-wacrm-pane] { isolation: isolate !important; }`,
-          `[data-wacrm-pane]::after { content: "" !important; position: absolute !important; inset: 0 !important; border: 1px solid ${line} !important; border-radius: 24px !important; pointer-events: none !important; z-index: 1000 !important; }`,
+          `${ANY} { isolation: isolate !important; }`,
+          `${ANY_AFTER} { content: "" !important; position: absolute !important; inset: 0 !important; border: 1px solid ${line} !important; border-radius: 24px !important; pointer-events: none !important; z-index: 1000 !important; }`,
         ]
       : []),
   ];

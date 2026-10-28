@@ -17,6 +17,7 @@ import {
   findRailColumn,
   hideListEdgeBorders,
   hideNativeFilters,
+  isChatListShown,
   markInfoSlot,
   markPanes,
   setAppShift,
@@ -119,6 +120,11 @@ export default defineContentScript({
     // WhatsApp re-renders panes: keep the card tags on the current elements.
     const tick = () => {
       markRail();
+      // Ligações, Arquivadas, Status… cover the chat list: our tabs and list go with it.
+      // Before markPanes: the header is aligned to the tab bar, which must be laid out again first.
+      const tabs = document.querySelector('wacrm-tabs');
+      const away = !isChatListShown();
+      if (tabs && tabs.hasAttribute('data-wacrm-away') !== away) tabs.toggleAttribute('data-wacrm-away', away);
       markPanes();
       markInfoSlot();
       hideListEdgeBorders();
@@ -126,6 +132,12 @@ export default defineContentScript({
       hideNativeFilters();
     };
     let railTimer: number | undefined;
+    // Opening Ligações / Arquivadas… or going back: adjust right away, not on the next second.
+    let clickTimers: number[] = [];
+    const onClick = () => {
+      clickTimers.forEach((t) => window.clearTimeout(t));
+      clickTimers = [150, 500].map((ms) => window.setTimeout(tick, ms));
+    };
 
     const apply = (enabled: boolean) => {
       if (enabled && !on) {
@@ -138,6 +150,7 @@ export default defineContentScript({
         privacyItem.getValue().then(applyPrivacy);
         tick();
         railTimer = window.setInterval(tick, 1000);
+        document.addEventListener('click', onClick, true);
         surfaces.forEach((ui) => ui.autoMount());
       } else if (!enabled) {
         on = false;
@@ -147,6 +160,8 @@ export default defineContentScript({
         stopPrivacy?.();
         stopPrivacy = undefined;
         window.clearInterval(railTimer);
+        document.removeEventListener('click', onClick, true);
+        clickTimers.forEach((t) => window.clearTimeout(t));
         surfaces.forEach((ui) => ui.remove());
         setAppShift(0);
         setRailVisible(null, true);
@@ -172,6 +187,8 @@ export default defineContentScript({
       unwatchPrivacy();
       stopPrivacy?.();
       window.clearInterval(railTimer);
+      document.removeEventListener('click', onClick, true);
+      clickTimers.forEach((t) => window.clearTimeout(t));
       setAppShift(0);
       setRailVisible(null, true);
       showEdgeLines();
