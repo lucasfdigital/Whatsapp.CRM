@@ -341,7 +341,7 @@ function SidebarShell({ store, railBox }: { store: CrmStore; railBox: HTMLElemen
           <div className="flex w-full shrink-0 flex-col gap-3 pb-3">
             {/* Brand */}
             <div className="flex flex-col gap-0.5 ps-1">
-              <span className="text-body-semibold whitespace-nowrap">WhatsApp</span>
+              <span className="text-body-semibold whitespace-nowrap">WhatsApp CRM</span>
               <span className="text-body-2-regular whitespace-nowrap text-text-tertiary">
                 Reimagined by{' '}
                 <a
