@@ -92,7 +92,9 @@ export function buildThemeCss(read: (token: string) => string, native: NativeSel
     // No visible scrollbars anywhere in WhatsApp; scrolling still works.
     `html, body, #app, #app * { scrollbar-width: none !important; }`,
     `#app *::-webkit-scrollbar { display: none !important; }`,
-    ...(ground ? paneCardCss(ground, read('background-secondary-default').trim()) : []),
+    ...(ground
+      ? paneCardCss(ground, read('background-secondary-default').trim(), read('border-button-white').trim())
+      : []),
     ...chatCss(read, native),
   ].join('\n');
 }
@@ -123,7 +125,7 @@ function chatCss(read: (token: string) => string, native: NativeSelectors): stri
 /** Chat list card width (border included). */
 export const LIST_WIDTH = 400;
 
-function paneCardCss(ground: string, card: string): string[] {
+function paneCardCss(ground: string, card: string, line = ''): string[] {
   return [
     // Layers over the panes keep the list's old width as a spacer: follow our list width.
     `[data-wacrm-spacer] { flex: none !important; width: ${LIST_WIDTH}px !important; max-width: ${LIST_WIDTH}px !important; min-width: 0 !important; }`,
@@ -146,6 +148,14 @@ function paneCardCss(ground: string, card: string): string[] {
     // Width only (no flex-basis): in a vertical flex column flex-basis would set the height.
     `[data-wacrm-pane="left"] { flex: none !important; width: ${LIST_WIDTH}px !important; max-width: ${LIST_WIDTH}px !important; min-width: 0 !important; }`,
     `[data-wacrm-pane="right"] { border-width: 8px 8px 8px 4px !important; border-radius: 28px 32px 32px 28px / 32px !important; }`,
+    // Same 1px line as the sidebar card (border-button-white, 24px inner radius). An overlay,
+    // since WhatsApp's own opaque children would cover an inset border or shadow.
+    ...(line
+      ? [
+          `[data-wacrm-pane] { position: relative !important; isolation: isolate !important; }`,
+          `[data-wacrm-pane]::after { content: "" !important; position: absolute !important; inset: 0 !important; border: 1px solid ${line} !important; border-radius: 24px !important; pointer-events: none !important; z-index: 1000 !important; }`,
+        ]
+      : []),
   ];
 }
 

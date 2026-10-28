@@ -29,6 +29,9 @@ describe('buildThemeCss', () => {
     expect(css).toContain('[data-wacrm-pane="right"]');
     expect(css).toContain('[data-wacrm-pane="right"] { border-width: 8px 8px 8px 4px !important;');
     expect(css).toContain(`width: ${LIST_WIDTH}px !important`);
+    // The sidebar card's 1px line, drawn over WhatsApp's content.
+    expect(css).toContain('[data-wacrm-pane]::after');
+    expect(css).toContain('border: 1px solid val(border-button-white)');
   });
 });
 

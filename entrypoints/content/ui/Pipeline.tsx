@@ -172,7 +172,7 @@ function Column({
     <section
       ref={setNodeRef}
       className={cx(
-        'flex min-w-48 flex-1 basis-0 flex-col rounded-3xl border border-border-button-default bg-background-secondary-default transition-colors duration-150',
+        'flex min-w-48 flex-1 basis-0 flex-col rounded-3xl border border-border-button-white bg-background-secondary-default shadow-sidebar transition-colors duration-150',
         isOver && 'border-accent-600',
       )}
     >
