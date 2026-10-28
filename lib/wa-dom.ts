@@ -16,7 +16,9 @@ export const SELECTORS = {
 
 /** Left edge for full-screen CRM views: just right of the native rail. */
 export function workspaceLeft(): number {
-  return chatSide()?.getBoundingClientRect().left ?? 0;
+  // The list card's edge (#side sits 1px inside it).
+  const pane = document.querySelector(`[${PANE_ATTR}="left"]`) ?? chatSide();
+  return pane?.getBoundingClientRect().left ?? 0;
 }
 
 /**
@@ -151,9 +153,25 @@ export function findRailBox(): HTMLElement | null {
   let node: HTMLElement | null = chatsBtn.parentElement;
   for (let i = 0; node && i < 10; i++, node = node.parentElement) {
     const r = node.getBoundingClientRect();
-    if (r.height >= window.innerHeight * 0.8 && r.width > 0 && r.width <= 120) return node;
+    if (r.height >= window.innerHeight * 0.8 && r.width > 0 && r.width <= 120) return widenToAllButtons(node);
   }
   return null;
+}
+
+const RAIL_BUTTONS = 'button[aria-label], [role="button"][aria-label]';
+
+/**
+ * On short windows the top group alone (Conversas … Anunciar) is tall enough to pass as the
+ * rail, leaving Mídia, Configurações and Perfil out: climb to the box holding every button.
+ */
+function widenToAllButtons(box: HTMLElement): HTMLElement {
+  const column = findRailColumn(box);
+  const total = column.querySelectorAll(RAIL_BUTTONS).length;
+  let node = box;
+  while (node !== column && node.parentElement && node.querySelectorAll(RAIL_BUTTONS).length < total) {
+    node = node.parentElement;
+  }
+  return node;
 }
 
 /**
@@ -239,10 +257,8 @@ export const LAYER_PANEL_ATTR = 'data-wacrm-layerpanel';
 export const LAYER_CARD_ATTR = 'data-wacrm-layercard';
 /** On the layer's panel while it has content of its own (Ligações details, Status…). */
 export const LAYER_FULL_ATTR = 'data-wacrm-layerfull';
-/** List header ("WhatsApp ⋮ +"): title hidden, buttons laid over the search row's end. */
-const HDR_ATTR = 'data-wacrm-hdr';
+/** The list header's title: the WhatsApp wordmark, drawn as "Conversas" by the theme. */
 const HDR_TITLE_ATTR = 'data-wacrm-hdrtitle';
-const SEARCH_ROW_ATTR = 'data-wacrm-searchrow';
 
 /** In-flow siblings of `node` that sit to its right and are wide enough to be a pane. */
 function panesBeside(node: Element): Element[] {
@@ -275,6 +291,8 @@ export function markPanes(): void {
     const panel = layer?.querySelector(`:scope > [${LAYER_PANEL_ATTR}]`);
     const full = on && !!panel && panel.getElementsByTagName('*').length > 2;
     if (panel && panel.hasAttribute(LAYER_FULL_ATTR) !== full) panel.toggleAttribute(LAYER_FULL_ATTR, full);
+    if (on) markDividers(spacer);
+    if (full && panel) markDividers(panel);
   });
   const side = chatSide();
   if (!side) return;
@@ -308,83 +326,24 @@ export function markPanes(): void {
   if (row && !row.hasAttribute(PANE_ROW_ATTR)) row.setAttribute(PANE_ROW_ATTR, '');
   document.querySelectorAll(`[${PANE_ROW_ATTR}]`).forEach((el) => el === row || el.removeAttribute(PANE_ROW_ATTR));
   if (row) markLayerSpacers(row, left);
-  layoutListHeader(left);
+  labelListHeader(left);
 }
 
 /**
- * One row on top of the list: search box, then ⋮ and +. The "WhatsApp" title
- * is hidden and its header is laid (absolute) over the end of the search row,
- * which leaves room for it. Nodes stay where WhatsApp put them.
+ * The list keeps WhatsApp's own header layout, like Ligações: title with ⋮ and +
+ * on one row, the search box under it, our tabs under that. Only the title
+ * changes: the WhatsApp wordmark becomes "Conversas" (theme, HDR_TITLE_ATTR).
  */
-function layoutListHeader(left: HTMLElement): void {
+function labelListHeader(left: HTMLElement): void {
   const menu = findMenuButton();
-  const search = findSearchBox();
-  const list = chatSide()?.querySelector(SELECTORS.chatList);
-  if (!menu || !search || !list || !left.contains(menu) || !left.contains(search)) return;
-  // Header: the menu's ancestor right below the branch that holds the search box.
-  let hdr: HTMLElement = menu;
-  while (hdr.parentElement && hdr.parentElement !== left && !hdr.parentElement.contains(search))
-    hdr = hdr.parentElement;
-  // Search row: the search box's ancestor right below the branch that holds the chat list.
-  let searchRow: HTMLElement = search;
-  while (searchRow.parentElement && searchRow.parentElement !== left && !searchRow.parentElement.contains(list)) {
-    searchRow = searchRow.parentElement;
-  }
-  if (hdr.contains(search) || searchRow.contains(menu)) return;
-  if (!hdr.hasAttribute(HDR_ATTR)) {
-    document.querySelectorAll(`[${HDR_ATTR}]`).forEach((el) => el.removeAttribute(HDR_ATTR));
-    hdr.setAttribute(HDR_ATTR, '');
-  }
-  document.querySelectorAll(`[${HDR_TITLE_ATTR}]`).forEach((el) => hdr.contains(el) || el.removeAttribute(HDR_TITLE_ATTR));
-  if (!searchRow.hasAttribute(SEARCH_ROW_ATTR)) {
-    document.querySelectorAll(`[${SEARCH_ROW_ATTR}]`).forEach((el) => el.removeAttribute(SEARCH_ROW_ATTR));
-    searchRow.setAttribute(SEARCH_ROW_ATTR, '');
-  }
-  // Hide everything in the header that isn't on the way to ⋮ or + (the title
-  // may be text, an SVG wordmark or "WhatsApp Business"): only the buttons stay.
-  const keep = [menu, findNewChatButton()].filter((el): el is HTMLElement => el !== null);
-  const hideOthers = (node: Element) => {
-    for (const child of node.children) {
-      if (keep.includes(child as HTMLElement)) continue;
-      if (keep.some((k) => child.contains(k))) hideOthers(child);
-      else if (!child.hasAttribute(HDR_TITLE_ATTR)) child.setAttribute(HDR_TITLE_ATTR, '');
-    }
-  };
-  hideOthers(hdr);
-  // Visible pill: the search box's first ancestor with a background.
-  let pillEl: HTMLElement = search;
-  while (
-    pillEl !== searchRow &&
-    pillEl.parentElement &&
-    getComputedStyle(pillEl).backgroundColor === 'rgba(0, 0, 0, 0)'
-  ) {
-    pillEl = pillEl.parentElement;
-  }
-  const l = left.getBoundingClientRect();
-  const row = searchRow.getBoundingClientRect();
-  const pill = pillEl.getBoundingClientRect();
-  const h = hdr.getBoundingClientRect();
-  const m = menu.getBoundingClientRect();
-  const last = (keep[keep.length - 1] ?? menu).getBoundingClientRect();
-  const px = (name: string, fallback: number) => parseFloat(left.style.getPropertyValue(name)) || fallback;
-  const set = (name: string, value: number) => {
-    const v = `${Math.round(value)}px`;
-    if (left.style.getPropertyValue(name) !== v) left.style.setProperty(name, v);
-  };
-  // ⋮ centered on the pill; `top` is measured from inside the card's border.
-  set('--wacrm-hdr-top', (pill.top + pill.bottom) / 2 - l.top - left.clientTop - ((m.top + m.bottom) / 2 - h.top));
-  // Search pill … + span exactly the width of our tab bar (12px in from the card otherwise, as the sidebar card).
-  const tabs = document
-    .querySelector('wacrm-tabs')
-    ?.shadowRoot?.querySelector('[role="tablist"]')
-    ?.getBoundingClientRect();
-  const startX = tabs?.width ? tabs.left : row.left + 12;
-  const endX = tabs?.width ? tabs.right : row.right - 12;
-  // A margin, not padding: WhatsApp's own inset inside the row may need a negative shift.
-  set('--wacrm-search-ms', px('--wacrm-search-ms', 0) + (startX - pill.left));
-  set('--wacrm-hdr-end', px('--wacrm-hdr-end', 0) + (last.right - endX));
-  // The pill stops 8px before ⋮.
-  set('--wacrm-search-pe', parseFloat(getComputedStyle(searchRow).paddingInlineEnd) + (pill.right - (m.left - 8)));
+  if (!menu || !left.contains(menu)) return;
+  // The title next to ⋮: WhatsApp's drawer title, as in Ligações and Arquivadas.
+  let title: Element | null = null;
+  for (let el: Element | null = menu.parentElement; el && el !== left && !title; el = el.parentElement)
+    title = el.querySelector('[data-testid="drawer-title-body"]');
+  if (!title || title.hasAttribute(HDR_TITLE_ATTR)) return;
+  document.querySelectorAll(`[${HDR_TITLE_ATTR}]`).forEach((el) => el.removeAttribute(HDR_TITLE_ATTR));
+  title.setAttribute(HDR_TITLE_ATTR, '');
 }
 
 /** WhatsApp's search box in the list (not inside the chat list). */
@@ -410,11 +369,32 @@ function markLayerSpacers(row: Element, left: Element): void {
   }
 }
 
+/**
+ * Hairlines WhatsApp paints with a fixed light gray (Arquivadas' divider, rgb(216 216 216) on a
+ * hashed class): found by shape (1–2px tall, wide, filled) and drawn with our separator token.
+ * Lists are skipped: they are long and their rows carry no such lines.
+ */
+const DIVIDER_ATTR = 'data-wacrm-divider';
+
+function markDividers(root: Element): void {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, {
+    acceptNode: (node) =>
+      (node as Element).matches('[role="grid"], [role="list"], [role="listitem"], [role="row"], #pane-side')
+        ? NodeFilter.FILTER_REJECT
+        : NodeFilter.FILTER_ACCEPT,
+  });
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (!(node instanceof HTMLElement) || node.hasAttribute(DIVIDER_ATTR) || node.childElementCount) continue;
+    if (node.offsetHeight > 2 || node.offsetHeight === 0 || node.offsetWidth < 100) continue;
+    if (getComputedStyle(node).backgroundColor === 'rgba(0, 0, 0, 0)') continue;
+    node.setAttribute(DIVIDER_ATTR, '');
+  }
+}
+
 export function clearPanes(): void {
   // Runs every second while another screen is open: nothing to undo most of the time.
-  const marks = [PANE_ATTR, PANE_ROW_ATTR, LAYER_SPACER_ATTR, LAYER_PANEL_ATTR, LAYER_CARD_ATTR, LAYER_FULL_ATTR, HDR_ATTR, HDR_TITLE_ATTR, SEARCH_ROW_ATTR];
-  const vars = '[style*="--wacrm-hdr"], [style*="--wacrm-search"]';
-  if (!document.querySelector(`${marks.map((a) => `[${a}]`).join(', ')}, ${vars}`)) return;
+  const marks = [PANE_ATTR, PANE_ROW_ATTR, LAYER_SPACER_ATTR, LAYER_PANEL_ATTR, LAYER_CARD_ATTR, LAYER_FULL_ATTR, HDR_TITLE_ATTR, DIVIDER_ATTR];
+  if (!document.querySelector(marks.map((a) => `[${a}]`).join(', '))) return;
   document.querySelectorAll(`[${PANE_ATTR}]`).forEach((el) => {
     el.removeAttribute(PANE_ATTR);
     el.removeAttribute(PANE_STATIC_ATTR);
@@ -424,13 +404,8 @@ export function clearPanes(): void {
   document.querySelectorAll(`[${LAYER_PANEL_ATTR}]`).forEach((el) => el.removeAttribute(LAYER_PANEL_ATTR));
   document.querySelectorAll(`[${LAYER_CARD_ATTR}]`).forEach((el) => el.removeAttribute(LAYER_CARD_ATTR));
   document.querySelectorAll(`[${LAYER_FULL_ATTR}]`).forEach((el) => el.removeAttribute(LAYER_FULL_ATTR));
-  for (const attr of [HDR_ATTR, HDR_TITLE_ATTR, SEARCH_ROW_ATTR]) {
-    document.querySelectorAll(`[${attr}]`).forEach((el) => el.removeAttribute(attr));
-  }
-  document.querySelectorAll<HTMLElement>(vars).forEach((el) => {
-    for (const name of ['--wacrm-hdr-top', '--wacrm-hdr-end', '--wacrm-search-pe', '--wacrm-search-ms'])
-      el.style.removeProperty(name);
-  });
+  document.querySelectorAll(`[${HDR_TITLE_ATTR}]`).forEach((el) => el.removeAttribute(HDR_TITLE_ATTR));
+  document.querySelectorAll(`[${DIVIDER_ATTR}]`).forEach((el) => el.removeAttribute(DIVIDER_ATTR));
 }
 
 /**
@@ -647,11 +622,13 @@ export interface RailItem {
   selected: boolean;
   /** Bottom group (settings, profile) vs top group. */
   bottom: boolean;
+  /** Photo on the button (Perfil shows the account's own). */
+  photo: string | null;
 }
 
 /** Snapshot of the native rail buttons (works while the rail is hidden). */
 export function readRailItems(box: HTMLElement): RailItem[] {
-  const buttons = [...box.querySelectorAll<HTMLElement>('button[aria-label], [role="button"][aria-label]')];
+  const buttons = [...box.querySelectorAll<HTMLElement>(RAIL_BUTTONS)];
   const seen = new Set<string>();
   // Layout is gone while the rail is hidden, so group by DOM structure: the
   // rail has two button groups (top: chats, calls...; bottom: settings, profile).
@@ -667,7 +644,15 @@ export function readRailItems(box: HTMLElement): RailItem[] {
       btn.getAttribute('aria-selected') === 'true' ||
       btn.getAttribute('aria-current') === 'page' ||
       btn.getAttribute('aria-current') === 'true';
-    return [{ label, badge: digits ? Number(digits[0]) : null, selected, bottom: groupOf(btn, box) === bottomGroup }];
+    return [
+      {
+        label,
+        badge: digits ? Number(digits[0]) : null,
+        selected,
+        bottom: groupOf(btn, box) === bottomGroup,
+        photo: btn.querySelector('img')?.src || null,
+      },
+    ];
   });
 }
 

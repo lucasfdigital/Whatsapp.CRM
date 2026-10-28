@@ -32,7 +32,9 @@ import {
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { NavItem } from '@/components/application/dashboard/dashboard-sidebar';
 import { activeCount } from '@/lib/privacy';
+import { Avatar } from '@/components/base/avatar/avatar';
 import { Badge } from '@/components/base/badges/badge';
+import { IconButton } from '@/components/base/buttons/icon-button';
 import { activeTabItem } from '@/lib/settings';
 import { categorize, type Category } from '@/lib/sidebar-categories';
 import {
@@ -57,6 +59,7 @@ import { cx } from '@/utils/cx';
 import { useCrm, type CrmStore } from '../store';
 import { Surface } from './shared';
 import { PrivacyPanel, usePrivacy, usePrivacyMisses } from './PrivacyPanel';
+import { UpdateNotice } from './UpdateNotice';
 
 /** Minimum stacking level; raised at runtime above WhatsApp's own app layer (zIndexAbove). */
 const SIDEBAR_Z = 10;
@@ -103,9 +106,12 @@ const NATIVE_ICONS: Array<[RegExp, RemixiconComponentType]> = [
   [/(desconectar|log ?out)/i, RiLogoutBoxRLine],
 ];
 
-/** ⋮ menu entries not shown in the sidebar (still listed in MENU_ACTIONS: they help recognize the menu). */
+/**
+ * ⋮ menu entries not shown in the sidebar (still listed in MENU_ACTIONS: they help recognize the menu).
+ * Bloqueio do app lives in Configurações › Privacidade.
+ */
 const SIDEBAR_HIDDEN =
-  /^(mensagens favoritas|starred messages|listas|lists|marcar todas como lidas|mark all as read|selecionar conversas|select chats|novo grupo|new group|nova conversa|new chat)$/i;
+  /^(mensagens favoritas|starred messages|listas|lists|marcar todas como lidas|mark all as read|selecionar conversas|select chats|novo grupo|new group|nova conversa|new chat|bloqueio do app|app lock)$/i;
 /**
  * Entries of WhatsApp's ⋮ menu (Business, pt-BR). Each one runs the native
  * entry, so nothing is lost; ones missing from the account's menu leave the
@@ -134,6 +140,53 @@ interface Entry {
 }
 
 const iconFor = (label: string) => NATIVE_ICONS.find(([re]) => re.test(label))?.[1] ?? RiCircleLine;
+
+const PROFILE = /^(perfil|profile)$/i;
+const LOGOUT = /desconectar|log ?out/i;
+
+/**
+ * Perfil as the account row: the account's photo (from WhatsApp's own Perfil button) in the
+ * icon's place, otherwise NavItem's look. 24px photo with 6px padding: it centers on the 20px
+ * icons above and the label starts where theirs do.
+ */
+function ProfileRow({
+  label,
+  photo,
+  isSelected,
+  onClick,
+}: {
+  label: string;
+  photo: string | null;
+  isSelected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-current={isSelected ? 'page' : undefined}
+      className={cx(
+        'flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 overflow-hidden rounded-2lg p-1.5 text-start',
+        'outline-none focus-visible:ring-2 focus-visible:ring-border-focus-ring',
+        'transition-[background-color] duration-300 ease-in-out',
+        isSelected
+          ? 'bg-linear-to-b from-accent-500 to-accent-600 shadow-nav-selected'
+          : 'hover:bg-background-secondary-hover',
+      )}
+    >
+      <span className="wacrm-blur-photos shrink-0">
+        <Avatar
+          size="sm"
+          src={photo ?? undefined}
+          initials={<RiUserSmileLine className="size-4" aria-hidden />}
+        />
+      </span>
+      <span className={cx('text-body-medium truncate', isSelected ? 'text-white' : 'text-text-secondary')}>
+        {label}
+      </span>
+    </button>
+  );
+}
 
 /**
  * BoardUI sidebar in place of WhatsApp's native rail. Native entries click the
@@ -308,6 +361,9 @@ function SidebarShell({ store, railBox }: { store: CrmStore; railBox: HTMLElemen
   const sections = categorize(entries);
   const account = sections.find((sec) => sec.id === 'conta')?.items ?? [];
   const body = sections.filter((sec) => sec.id !== 'conta');
+  // The footer ends on the account: own photo + Perfil, with Desconectar as an icon button beside it.
+  const profile = bottom.find((i) => PROFILE.test(i.label));
+  const logout = account.find((e) => LOGOUT.test(e.label));
 
   const row = (entry: Entry) => (
     <NavItem
@@ -325,10 +381,8 @@ function SidebarShell({ store, railBox }: { store: CrmStore; railBox: HTMLElemen
   const section = (key: string, title: string, children: ReactNode) => (
     <Fragment key={key}>
       <div className="h-px w-full shrink-0 bg-separator-border" aria-hidden />
+      {/* Only the separator shows the groups; the name stays for screen readers. */}
       <nav aria-label={title} className="flex w-full flex-col gap-1 px-0.5">
-        <div className="px-2">
-          <span className="text-caption-1-semibold whitespace-nowrap text-text-tertiary uppercase">{title}</span>
-        </div>
         {children}
       </nav>
     </Fragment>
@@ -419,6 +473,7 @@ function SidebarShell({ store, railBox }: { store: CrmStore; railBox: HTMLElemen
           </div>
 
           <div className="flex w-full shrink-0 flex-col gap-1 border-t border-separator-border pt-3">
+            <UpdateNotice />
             {privacyOpen && <PrivacyPanel />}
             <NavItem
               icon={RiEyeOffLine}
@@ -446,12 +501,33 @@ function SidebarShell({ store, railBox }: { store: CrmStore; railBox: HTMLElemen
               </p>
             ))}
             <nav aria-label="Conta" className="flex w-full flex-col gap-1">
-              {/* Desconectar last, away from Configurações (the most clicked footer entry). */}
               {[
-                ...account.filter((e) => !/desconectar|log ?out/i.test(e.label)),
-                ...bottom.map(fromRail),
-                ...account.filter((e) => /desconectar|log ?out/i.test(e.label)),
+                ...account.filter((e) => e !== logout),
+                ...bottom.filter((i) => i !== profile).map(fromRail),
               ].map(row)}
+              {(profile || logout) && (
+                <div className="flex w-full items-center gap-1">
+                  {profile && (
+                    <ProfileRow
+                      label={profile.label}
+                      photo={profile.photo}
+                      isSelected={selected === profile.label}
+                      onClick={() => openNative(profile.label)}
+                    />
+                  )}
+                  {/* Opens WhatsApp's own "Desconectar?" confirmation, as the menu entry does. */}
+                  {logout && (
+                    <IconButton
+                      icon={RiLogoutBoxRLine}
+                      size="small"
+                      aria-label={logout.label}
+                      title={logout.label}
+                      onClick={logout.run}
+                      className="ms-auto"
+                    />
+                  )}
+                </div>
+              )}
             </nav>
           </div>
         </aside>

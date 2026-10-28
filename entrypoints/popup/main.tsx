@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { useEffect, useState } from 'react';
 import { enabledItem } from '@/lib/settings';
 import { Switch } from '@/components/base/switch/switch';
+import { UpdateNotice } from '../content/ui/UpdateNotice';
 
 function Popup() {
   const [enabled, setEnabled] = useState<boolean | null>(null);
@@ -29,6 +30,10 @@ function Popup() {
           isDisabled={enabled === null}
           onChange={(v) => enabledItem.setValue(v)}
         />
+      </div>
+      <div className="mt-3 empty:hidden">
+        {/* Same box as the switch card above. */}
+        <UpdateNotice className="rounded-xl border border-border-button-default bg-background-secondary-default px-3 py-2.5 ring-0" />
       </div>
     </main>
   );

@@ -6,6 +6,22 @@
   --font-mono-source: "JetBrains Mono", ui-monospace, Menlo, monospace;
 }
 
+/* Entrance after the loading screen (Splash sets the attribute on <html>): the sidebar slides in first. */
+@keyframes wacrm-enter-side {
+  from {
+    opacity: 0;
+    translate: -16px 0;
+  }
+}
+:host-context(html[data-wacrm-enter]) aside {
+  animation: wacrm-enter-side 520ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  :host-context(html[data-wacrm-enter]) aside {
+    animation: none;
+  }
+}
+
 /* Set by the content script while WhatsApp shows another panel over the chat list (Ligações, Arquivadas…).
    An attribute, not an inline style: WXT's `:host { all: initial !important }` beats inline styles. */
 :host([data-wacrm-away]) {

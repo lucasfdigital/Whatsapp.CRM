@@ -25,7 +25,7 @@ export function ChatAvatar({
   kind: ChatKind;
   /** Photo URL; shown only once it loads (expired URLs keep the initials). */
   pic?: string | null;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'xl';
 }) {
   const [loaded, setLoaded] = useState<string | null>(null);
   useEffect(() => {

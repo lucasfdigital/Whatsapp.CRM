@@ -41,8 +41,16 @@ export const TOKEN_MAP: Record<string, string[]> = {
   'text-primary': ['--WDS-content-default', '--WDS-content-on-accent', '--toast-text-web'],
   'text-secondary': ['--WDS-content-deemphasized', '--WDS-systems-bubble-content-deemphasized'],
   'text-placeholder': ['--WDS-content-disabled'],
+  // Missed calls, destructive menu entries: BoardUI's error red, not WhatsApp's.
+  'text-error-primary': ['--WDS-secondary-negative'],
   'separator-border': ['--WDS-lines-divider'],
-  'border-button-default': ['--WDS-lines-outline-default', '--WDS-lines-outline-deemphasized', '--toast-border-color'],
+  'border-button-default': [
+    '--WDS-lines-outline-default',
+    '--WDS-lines-outline-deemphasized',
+    '--toast-border-color',
+    // Despite the name, also the 1px line around WhatsApp's dropdown menus (⋮).
+    '--WDS-components-outline-profile-photo',
+  ],
   'accent-400': [
     '--WDS-content-action-default',
     '--WDS-content-action-emphasized',
@@ -104,11 +112,56 @@ export function buildThemeCss(
     `:root, :root * { --toast-border-width: 1px !important; --toast-border-style: solid !important; --toast-corner-radius: 12px !important; }`,
     `#wds-toast-container { inset-inline-start: calc(var(--wacrm-sidebar-w, 0px) + 16px) !important; }`,
     ...tooltipCss(read),
+    ...headerCss(read),
+    ...illustrationCss(read),
     ...(ground
-      ? paneCardCss(ground, read('background-secondary-default').trim(), read('border-button-white').trim())
+      ? [
+          ...paneCardCss(ground, read('background-secondary-default').trim(), read('border-button-white').trim()),
+          ...enterCss(),
+        ]
       : []),
     ...chatCss(read, native),
   ].join('\n');
+}
+
+/**
+ * Every list screen follows Ligações: title row (22px title, ⋮ and actions), search, then tabs.
+ * Conversas keeps WhatsApp's header in place with "Conversas" instead of the wordmark (wa-dom
+ * marks the title); Arquivadas and the other screens with a back arrow get the same title size
+ * and 20px sides (the arrow's 40px box starts 8px further in, so its glyph lines up). Arquivadas
+ * opens from the sidebar like Ligações, so its arrow goes.
+ */
+function headerCss(read: (token: string) => string): string[] {
+  const text = read('text-primary').trim();
+  const title = '[data-wacrm-spacer] [data-testid="drawer-title-body"] h2';
+  const back = '[aria-label="Voltar"], [aria-label="Back"]';
+  return [
+    `[data-wacrm-hdrtitle] > * { display: none !important; }`,
+    // Fixed light-gray hairlines (wa-dom markDividers) take the separator token.
+    ...(read('separator-border').trim() ? [`[data-wacrm-divider] { background: ${read('separator-border').trim()} !important; }`] : []),
+    `[data-wacrm-hdrtitle]::before { content: "Conversas"; display: block; white-space: nowrap; font: 420 22px/28px ${FONT_STACK};${text ? ` color: ${text};` : ''} }`,
+    `[data-wacrm-spacer] header:has([data-testid="drawer-title-body"]) { padding-inline: 20px !important; }`,
+    `[data-wacrm-spacer] header:has([data-testid="drawer-title-body"]):has(${back}) { padding-inline-start: 12px !important; }`,
+    `${title}, ${title} * { font-size: 22px !important; line-height: 28px !important; }`,
+    // Arquivadas is a sidebar item like Ligações: no back arrow (Conversas in the sidebar goes back).
+    `[data-testid="archived-drawer"] header :is(${back}) { display: none !important; }`,
+    // As specific as the back-arrow rule above, and after it: 20px wins.
+    `[data-wacrm-spacer] [data-testid="archived-drawer"] header:has([data-testid="drawer-title-body"]) { padding-inline-start: 20px !important; }`,
+  ];
+}
+
+/**
+ * Entrance after our loading screen (Splash sets the attribute on <html> for a moment):
+ * the cards rise in after the sidebar. `translate`, not `transform`: WhatsApp transforms the panes.
+ */
+function enterCss(): string[] {
+  const ease = 'cubic-bezier(0.2, 0.8, 0.2, 1)';
+  return [
+    `@keyframes wacrm-rise { from { opacity: 0; translate: 0 16px; } }`,
+    `html[data-wacrm-enter] [data-wacrm-pane="left"] { animation: wacrm-rise 560ms ${ease} 120ms backwards !important; }`,
+    `html[data-wacrm-enter] [data-wacrm-pane="right"] { animation: wacrm-rise 560ms ${ease} 220ms backwards !important; }`,
+    `@media (prefers-reduced-motion: reduce) { html[data-wacrm-enter] [data-wacrm-pane] { animation: none !important; } }`,
+  ];
 }
 
 /**
@@ -125,6 +178,23 @@ function tooltipCss(read: (token: string) => string): string[] {
     `[role="tooltip"], [role="tooltip"] * { --WDS-surface-inverse: ${surface} !important; --WDS-content-inverse: ${text} !important; }`,
     `[role="tooltip"] { border-radius: 8px !important;${line ? ` border: 1px solid ${line} !important;` : ''} }`,
   ];
+}
+
+/**
+ * The empty-pane illustrations (no chat open, Ligações) have WhatsApp's green, mint and cream
+ * baked into the svg attributes, as rgb() in one and hex in the other: they take the accent and
+ * card tokens, the dark outlines the button line. Only svgs carrying that mint, which no icon uses.
+ */
+function illustrationCss(read: (token: string) => string): string[] {
+  const attr = (name: string, rgb: string, hex: string) => `:is([${name}="rgb(${rgb})"], [${name}="${hex}" i])`;
+  const svg = `#app svg:has(${attr('fill', '230,255,218', '#e6ffda')})`;
+  const rules: Array<[string, string, string]> = [
+    [attr('fill', '37,211,102', '#25d366'), 'fill', read('accent-500').trim()],
+    [attr('fill', '230,255,218', '#e6ffda'), 'fill', read('background-tertiary-default').trim()],
+    [attr('fill', '252,245,235', '#fcf5eb'), 'fill', read('background-quaternary-default').trim()],
+    [attr('stroke', '17,27,33', '#111b21'), 'stroke', read('border-button-hover').trim()],
+  ];
+  return rules.filter(([, , value]) => value).map(([sel, prop, value]) => `${svg} ${sel} { ${prop}: ${value} !important; }`);
 }
 
 /**
@@ -166,14 +236,7 @@ function paneCardCss(ground: string, card: string, line = ''): string[] {
     // Layers over the panes keep the list's old width as a spacer: follow our list width.
     `[data-wacrm-spacer] { flex: none !important; width: ${LIST_WIDTH}px !important; max-width: ${LIST_WIDTH}px !important; min-width: 0 !important; }`,
     `[data-wacrm-layerpanel] { border-inline-start-width: 0 !important; }`,
-    // Search, ⋮ and + in one row: header laid over the search row's end (see layoutListHeader).
     `[data-wacrm-pane="left"] { position: relative !important; }`,
-    `[data-wacrm-hdr] { position: absolute !important; top: var(--wacrm-hdr-top, 0px) !important; inset-inline-end: var(--wacrm-hdr-end, 0px) !important; inset-inline-start: auto !important; width: auto !important; z-index: 2 !important; background: transparent !important; }`,
-    // Hover circles of ⋮ and + overflow their small boxes; don't clip them.
-    `[data-wacrm-hdr], [data-wacrm-hdr] div, [data-wacrm-hdr] span { overflow: visible !important; }`,
-    `[data-wacrm-hdrtitle] { display: none !important; }`,
-    // 12px breathing room above the search row (as in the sidebar card); its sides follow our tab bar (wa-dom).
-    `[data-wacrm-searchrow] { padding-block: 12px 8px !important; padding-inline-start: 0 !important; margin-inline-start: var(--wacrm-search-ms, 0px) !important; padding-inline-end: var(--wacrm-search-pe, 96px) !important; }`,
     // Behind the round corners: the ground, not WhatsApp's surface color.
     // Not on the layer: where it shows nothing (Arquivadas' empty panel) the panes below must show through.
     `[data-wacrm-panerow] { background: ${ground} !important; }`,

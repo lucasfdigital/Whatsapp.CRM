@@ -21,7 +21,8 @@ A chave no ícone da extensão liga e desliga tudo; desligada, o WhatsApp volta 
 - **Nunca envia mensagens** nem responde sozinha. Ações no WhatsApp só acontecem quando você clica.
 - **Não salva conteúdo de conversa.** Prévias e fotos ficam só na memória da aba.
 - Salva em `chrome.storage.local`, no seu navegador, apenas o que você marca: identificador do chat, nome, status de cliente, etapa, tags, notas e horário/direção da última mensagem.
-- Sem servidor, sem login, sem envio de dados para fora.
+- Sem servidor e sem login; os dados do CRM nunca saem do navegador.
+- No máximo a cada 6 horas, a extensão consulta a última versão publicada neste repositório (`api.github.com`) para avisar quando há uma nova. A consulta não leva nenhum dado seu; o GitHub vê só o IP e o navegador, como em qualquer visita.
 - Permissões: `storage`, `unlimitedStorage`, `scripting` e acesso só a `https://web.whatsapp.com/*`.
 
 ## Instalar (modo desenvolvedor)
@@ -38,6 +39,25 @@ npm run build
 3. Abra https://web.whatsapp.com.
 
 Para atualizar depois de um novo build: clique em ↻ no card da extensão e recarregue a aba do WhatsApp.
+
+### Atualizar para uma nova versão
+
+Quando sai uma versão nova, aparece **Nova versão** no rodapé da sidebar e no popup do ícone da extensão. O link abre a página da versão no GitHub. A extensão não se atualiza sozinha (o Chrome não atualiza extensões carregadas sem compactação):
+
+1. Baixe o `.zip` da versão.
+2. Apague o conteúdo da pasta que você carregou no Chrome e extraia o zip **nessa mesma pasta**. Quem instalou pelo código pode, em vez disso, rodar `git pull`, `npm install` e `npm run build`.
+3. Em `chrome://extensions`, clique em ↻ no card da extensão e recarregue a aba do WhatsApp.
+
+> Use sempre a mesma pasta. Numa pasta diferente o Chrome trata como outra extensão, e as tags, notas e o pipeline salvos não aparecem.
+
+### Publicar uma versão
+
+Quem já usa só é avisado de versões maiores que a instalada. Suba `version` em `package.json`, faça o commit e o push, e então:
+
+```bash
+npm run zip
+gh release create v0.2.0 build/whatsapp-crm-0.2.0-chrome.zip --title "v0.2.0" --notes-file docs/como-atualizar.md
+```
 
 ## Desenvolvimento
 
@@ -56,9 +76,11 @@ O que depende do WhatsApp de verdade (layout, ações nativas) é conferido à m
 | `public/wppconnect-wa.js` ([wa-js](https://github.com/wppconnect-team/wa-js) 4.7.2) | página do WhatsApp | expõe `window.WPP`; injetado só com a extensão ligada |
 | `entrypoints/wa-bridge.ts` | página do WhatsApp | lista conversas, avisa novas mensagens, abre conversas e roda as ações do menu ⋮ |
 | `entrypoints/background.ts`, `lib/main-world.ts` | service worker | registra ou remove os scripts da página conforme a chave |
+| `lib/update.ts`, `ui/UpdateNotice.tsx` | service worker, sidebar e popup | compara a versão instalada com a última Release do GitHub (no máximo a cada 6 h) e mostra **Nova versão** com o link |
 | `lib/bridge/*` | content script | cliente tipado da ponte; valida com zod tudo que vem da página |
 | `lib/repo/*` | content script | dados em `chrome.storage.local`, com schema versionado e migrações |
 | `entrypoints/content/*` | content script | interface (React + Tailwind v4 em Shadow DOM) |
+| `entrypoints/splash.content.tsx` | content script (`document_start`) | tela de carregamento e animação de entrada; só com a extensão ligada |
 | `lib/wa-dom.ts`, `lib/wa-theme.ts` | content script | seletores do WhatsApp e tema aplicado à interface nativa |
 | `lib/privacy.ts` | content script | regras de desfoque e o véu de tela inteira |
 | `entrypoints/popup/*` | popup | chave liga/desliga |

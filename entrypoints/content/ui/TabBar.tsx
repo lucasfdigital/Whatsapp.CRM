@@ -133,16 +133,24 @@ export function TabBar({ store }: { store: CrmStore }) {
 
   return (
     <Surface className="flex flex-col">
-      <Tabs selectedKey={tab} onSelectionChange={(key) => activeTabItem.setValue(toTabId(key))} className="px-3 pb-1">
-        {/* Small size, compact padding and no icons: four tabs with 3-digit counts must fit the narrow list. */}
+      <Tabs selectedKey={tab} onSelectionChange={(key) => activeTabItem.setValue(toTabId(key))} className="px-5 pb-1">
+        {/* Small size, compact padding and no icons: four tabs with 3-digit counts must fit the narrow list.
+            20px sides, like WhatsApp's search box above (Ligações' layout). */}
         <TabList aria-label="Filtros do CRM" className="overflow-x-auto [scrollbar-width:none]">
           {TABS.map((item) => (
             <Tab
               key={item.id}
               id={item.id}
               size="sm"
-              count={status === 'ready' ? counts[item.id] : '…'}
-              className="flex-1 justify-center gap-0.5 px-0.5"
+              count={
+                status === 'ready' ? (
+                  counts[item.id]
+                ) : (
+                  // Loading: a muted bar in the count pill, so the tabs don't jump when numbers arrive.
+                  <span className="block h-2 w-3 rounded-full bg-current opacity-30 motion-safe:animate-pulse" aria-hidden />
+                )
+              }
+              className="flex-1 justify-center gap-0.5 px-0"
             >
               {item.label}
             </Tab>
@@ -222,8 +230,8 @@ function ChatList(props: {
   };
 
   let empty: string | null = null;
-  if (status === 'loading') empty = 'Carregando conversas…';
-  else if (status === 'error') empty = `Não consegui ler as conversas do WhatsApp. ${error ?? ''}`;
+  // Loading shows the skeleton instead.
+  if (status === 'error') empty = `Não consegui ler as conversas do WhatsApp. ${error ?? ''}`;
   else if (rows.length === 0)
     empty = query.trim()
       ? 'Nada encontrado.'
@@ -242,7 +250,9 @@ function ChatList(props: {
       className="overflow-y-auto [scrollbar-width:none]"
       style={{ height }}
     >
-      {empty ? (
+      {status === 'loading' ? (
+        <ListSkeleton />
+      ) : empty ? (
         <p className="px-6 py-8 text-center text-body-2-regular text-text-tertiary">{empty}</p>
       ) : (
         <div className="flex flex-col gap-2 p-2">
@@ -266,8 +276,9 @@ function ChatList(props: {
                 }}
                 className="cursor-pointer transition-colors duration-150 outline-none hover:bg-background-primary-hover focus-visible:ring-2 focus-visible:ring-border-focus-ring"
                 visual={
-                  <span className="wacrm-blur-photos shrink-0">
-                    <ChatAvatar name={row.name} kind={row.kind} pic={row.pic ?? pics[row.jid]} />
+                  // Centered on the card's two lines, like WhatsApp's list.
+                  <span className="wacrm-blur-photos shrink-0 self-center">
+                    <ChatAvatar name={row.name} kind={row.kind} pic={row.pic ?? pics[row.jid]} size="xl" />
                   </span>
                 }
                 title={<span className="wacrm-blur-names block truncate">{row.name}</span>}
@@ -368,5 +379,33 @@ function LoadingHint({ status, error }: { status: LoadStatus; error?: string }) 
       Conectando ao WhatsApp… ({detail}
       {error ? ` · ${error}` : ''})
     </p>
+  );
+}
+
+/** Loading: placeholder cards shaped like the real ones (photo, name and time, last message). */
+function ListSkeleton() {
+  const widths = ['w-2/5', 'w-1/2', 'w-1/3', 'w-3/5', 'w-2/5', 'w-1/2', 'w-1/3'];
+  return (
+    <div className="flex flex-col gap-2 p-2" role="status" aria-busy="true" aria-label="Carregando conversas">
+      {widths.map((w, i) => (
+        <div
+          key={i}
+          aria-hidden
+          className="flex gap-3 rounded-notification-card bg-background-primary-default px-3 py-3 motion-safe:animate-pulse"
+          style={{ animationDelay: `${i * 90}ms` }}
+        >
+          <span className="size-10 shrink-0 self-center rounded-full bg-background-quaternary-default" />
+          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span className="flex h-5 items-center justify-between gap-3">
+              <span className={cx('h-3 rounded-full bg-background-quaternary-default', w)} />
+              <span className="h-2.5 w-8 rounded-full bg-background-quaternary-default" />
+            </span>
+            <span className="flex h-5 items-center">
+              <span className="h-2.5 w-3/4 rounded-full bg-background-quaternary-default" />
+            </span>
+          </span>
+        </div>
+      ))}
+    </div>
   );
 }

@@ -121,55 +121,58 @@ export function Pipeline({ store }: { store: CrmStore }) {
   return (
     <Surface>
       {/* Fixed element carries its own z-index: the shadow host's z-index is reset by WXT. */}
-      <div className="fixed inset-y-0 right-0 flex flex-col bg-background-full" style={{ left, zIndex: OVERLAY_Z }}>
-        <header className="flex items-center justify-between gap-4 border-b border-separator-border px-6 py-4">
-          <div className="flex items-center gap-3">
-            <span className="flex size-9 items-center justify-center rounded-xl bg-accent-900 text-accent-300">
-              <RiLayoutColumnLine className="size-5" aria-hidden />
-            </span>
-            <div>
-              <h1 className="text-title-3-semibold">Pipeline de clientes</h1>
-              <p className="text-body-2-regular text-text-tertiary">
-                {total} {total === 1 ? 'cliente' : 'clientes'} · arraste os cards entre as etapas
+      {/* Same card as the list and the conversation: 8px of ground around it, starting where the list card starts. */}
+      <div className="fixed inset-y-0 right-0 flex bg-background-full p-2 ps-0" style={{ left, zIndex: OVERLAY_Z }}>
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border-button-white bg-background-secondary-default shadow-sidebar">
+          <header className="flex items-center justify-between gap-4 border-b border-separator-border px-6 py-4">
+            <div className="flex items-center gap-3">
+              <span className="flex size-9 items-center justify-center rounded-xl bg-accent-900 text-accent-300">
+                <RiLayoutColumnLine className="size-5" aria-hidden />
+              </span>
+              <div>
+                <h1 className="text-title-3-semibold">Pipeline de clientes</h1>
+                <p className="text-body-2-regular text-text-tertiary">
+                  {total} {total === 1 ? 'cliente' : 'clientes'} · arraste os cards entre as etapas
+                </p>
+              </div>
+            </div>
+            <IconButton icon={RiCloseLine} aria-label="Fechar pipeline" onClick={() => store.setView('none')} />
+          </header>
+
+          {total === 0 ? (
+            <div className="flex flex-1 items-center justify-center p-8">
+              <p className="max-w-sm text-center text-body-regular text-text-tertiary">
+                {trackedError
+                  ? `Não consegui ler os clientes salvos. ${trackedError}`
+                  : 'Nenhum cliente ainda. Marque grupos ou conversas com a estrela nas abas Individual e Grupos, ou pelo botão CRM da conversa, e eles aparecem aqui.'}
               </p>
             </div>
-          </div>
-          <IconButton icon={RiCloseLine} aria-label="Fechar pipeline" onClick={() => store.setView('none')} />
-        </header>
-
-        {total === 0 ? (
-          <div className="flex flex-1 items-center justify-center p-8">
-            <p className="max-w-sm text-center text-body-regular text-text-tertiary">
-              {trackedError
-                ? `Não consegui ler os clientes salvos. ${trackedError}`
-                : 'Nenhum cliente ainda. Marque grupos ou conversas com a estrela nas abas Individual e Grupos, ou pelo botão CRM da conversa, e eles aparecem aqui.'}
-            </p>
-          </div>
-        ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={collision}
-            onDragStart={() => (dragging.current = true)}
-            onDragEnd={(e) => {
-              // After the keydown that ended it has been seen by our Escape listener.
-              setTimeout(() => (dragging.current = false));
-              onDragEnd(e);
-            }}
-            onDragCancel={() => setTimeout(() => (dragging.current = false))}
-          >
-            <div className="flex flex-1 gap-4 overflow-x-auto p-6">
-              {stages.map((stage) => (
-                <Column
-                  key={stage.id}
-                  store={store}
-                  stage={stage}
-                  cards={columns.get(stage.id) ?? []}
-                  onOpen={(jid) => store.openChat(jid)}
-                />
-              ))}
-            </div>
-          </DndContext>
-        )}
+          ) : (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={collision}
+              onDragStart={() => (dragging.current = true)}
+              onDragEnd={(e) => {
+                // After the keydown that ended it has been seen by our Escape listener.
+                setTimeout(() => (dragging.current = false));
+                onDragEnd(e);
+              }}
+              onDragCancel={() => setTimeout(() => (dragging.current = false))}
+            >
+              <div className="flex flex-1 gap-4 overflow-x-auto p-6">
+                {stages.map((stage) => (
+                  <Column
+                    key={stage.id}
+                    store={store}
+                    stage={stage}
+                    cards={columns.get(stage.id) ?? []}
+                    onOpen={(jid) => store.openChat(jid)}
+                  />
+                ))}
+              </div>
+            </DndContext>
+          )}
+        </div>
       </div>
     </Surface>
   );
@@ -191,8 +194,9 @@ function Column({
     <section
       ref={setNodeRef}
       className={cx(
-        'flex min-w-48 flex-1 basis-0 flex-col rounded-3xl border border-border-button-white bg-background-secondary-default shadow-sidebar transition-colors duration-150',
-        isOver && 'border-accent-600',
+        // A well inside the pipeline card; the clients are the primary-surface cards, as in the chat list.
+        'flex min-w-48 flex-1 basis-0 flex-col rounded-2xl border border-border-button-default transition-colors duration-150',
+        isOver && 'border-accent-600 bg-background-secondary-hover',
       )}
     >
       <header className="flex items-center justify-between px-4 pt-4 pb-3">

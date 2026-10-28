@@ -52,6 +52,19 @@ describe('buildThemeCss', () => {
   });
 });
 
+describe('WhatsApp colors outside the variables', () => {
+  it('paints the empty-pane illustration and the missed-call red with BoardUI tokens', () => {
+    const css = buildThemeCss((token) => `val(${token})`);
+    // Conversas' illustration writes rgb(), Ligações' hex.
+    const svg = '#app svg:has(:is([fill="rgb(230,255,218)"], [fill="#e6ffda" i]))';
+    expect(css).toContain(`${svg} :is([fill="rgb(37,211,102)"], [fill="#25d366" i]) { fill: val(accent-500) !important; }`);
+    expect(css).toContain(
+      `${svg} :is([stroke="rgb(17,27,33)"], [stroke="#111b21" i]) { stroke: val(border-button-hover) !important; }`,
+    );
+    expect(css).toContain('--WDS-secondary-negative:val(text-error-primary) !important;');
+  });
+});
+
 describe('buildIconCss', () => {
   it('hides the native svg and paints the remix glyph with currentColor', async () => {
     const { buildIconCss } = await import('./wa-icons');
