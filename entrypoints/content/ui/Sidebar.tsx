@@ -318,7 +318,7 @@ function SidebarShell({ store, railBox }: { store: CrmStore; railBox: HTMLElemen
                 <span className="text-body-regular text-text-tertiary">
                   by{' '}
                   <a
-                    href="https://astruzdev.vercel.app/"
+                    href="https://astruz.dev/"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="rounded-sm text-accent-400 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-border-focus-ring"
